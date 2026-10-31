@@ -1,0 +1,8 @@
+import { sqliteTable, text, integer, primaryKey } from 'drizzle-orm/sqlite-core';
+import type { Board, Task, Directory } from '../shared/model.js';
+export const boards = sqliteTable('boards', { id: text('id').primaryKey(), revision: integer('revision').notNull(), settings: text('settings', {mode:'json'}).$type<Board['settings']>().notNull() });
+export const columns = sqliteTable('board_columns', { id: text('id').primaryKey(), boardId: text('board_id').notNull().references(()=>boards.id), position: integer('position').notNull(), stage: text('stage').notNull(), title: text('title').notNull() });
+export const directories = sqliteTable('directories', { id: text('id').primaryKey(), boardId: text('board_id').notNull().references(()=>boards.id), kind: text('kind').$type<Directory['kind']>().notNull(), name: text('name').notNull() });
+export const tasks = sqliteTable('tasks', { id: text('id').primaryKey(), boardId: text('board_id').notNull().references(()=>boards.id), columnId: text('column_id').notNull().references(()=>columns.id), position: integer('position').notNull(), data: text('data', {mode:'json'}).$type<Omit<Task,'id'|'columnId'|'dependencies'|'checklist'>>().notNull() });
+export const dependencies = sqliteTable('dependencies', { taskId: text('task_id').notNull().references(()=>tasks.id,{onDelete:'cascade'}), dependsOn: text('depends_on').notNull().references(()=>tasks.id,{onDelete:'cascade'}) }, t=>[primaryKey({columns:[t.taskId,t.dependsOn]})]);
+export const checklist = sqliteTable('checklist', { id: text('id').primaryKey(), taskId: text('task_id').notNull().references(()=>tasks.id,{onDelete:'cascade'}), position: integer('position').notNull(), text: text('text').notNull(), done: integer('done', {mode:'boolean'}).notNull() });

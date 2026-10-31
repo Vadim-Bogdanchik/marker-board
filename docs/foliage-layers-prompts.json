@@ -1,0 +1,26 @@
+[
+  {
+    "key": "window-foreground",
+    "args": {
+      "referenced_image_paths": [
+        "public/materials/window-reflection.png"
+      ],
+      "transparent_background": true,
+      "prompt": "Use case: background-extraction. Asset type: foreground occlusion plate for a layered animation in an interactive whiteboard app. The input image is the EDIT TARGET. Preserve the entire exact photographic reflected window/enamel image, its composition, size, perspective, all white window mullions, soft reflected sunlight and gray-white enamel across the right 80%. Change ONLY the glass panes in the leftmost 15% that currently contain yellow-green foliage: remove the outdoor scene and make the INTERIORS OF THESE GLASS PANES genuinely transparent alpha windows, not white, not a checkerboard. Remove all green foliage pixels. The window frame and all reflected enamel remain opaque exactly where they are. The transparent openings should be full continuous pane areas, NOT holes shaped like individual leaves. Preserve soft semi-transparent optical edges at window mullions. This plate will cover animated foliage BEHIND it; it must occlude the foliage completely outside the glass openings. Keep neutral right 80% opaque, do not cut out entire background. No other objects, no text. Same landscape aspect as input."
+    }
+  },
+  {
+    "key": "foliage-branch-a",
+    "args": {
+      "transparent_background": true,
+      "prompt": "Use case: photorealistic-natural. Asset type: isolated branch sprite for animation behind a reflected window. A real small deciduous tree twig with about 18 delicate pale yellow-green leaves in small groups, photographed against transparent alpha. Twig enters from the bottom RIGHT, arcs gently up and left; leaves along it, distinct oval/birch-like leaf shapes, fine thin warm-gray stem. Fresh early-summer foliage backlit by bright diffuse daylight, light yellow-green and sage-green, soft slightly overexposed photographic look. Medium focus, not razor sharp, but leaf silhouettes clearly defined and recognizable, NO bokeh cloud, no smearing. Delicate little translucency veins. Mostly airy gaps between leaves; foliage takes 55% of square canvas. No tree trunk, no ground, no pot, no window, no frame, no white rectangle, no shadow, no text. Genuine transparent background, tight square composition, natural photo cutout NOT illustration. All leaf shapes coherent for rigid branch rotation, not a blob of texture."
+    }
+  },
+  {
+    "key": "foliage-branch-b",
+    "args": {
+      "transparent_background": true,
+      "prompt": "Use case: photorealistic-natural. Asset type: second independent branch sprite for a subtle reflected outdoor animation. A real thin birch twig enters from bottom LEFT and extends diagonally to upper RIGHT with 10 small pale lime and yellow-green oval leaves, several turned slightly sideways. Genuine transparent alpha background. Bright diffuse backlighting, softly washed photographic daylight, light pale-green but clear silhouette edges. Thin brown-gray twig visibly connects all leaves. Airy irregular spacing, NOT a dense bush or leaf cloud. Medium focus natural photo cutout with fine vein texture, not illustrated. Square composition, fills 75% of canvas. No background, no window, no ground, no shadow, no typography."
+    }
+  }
+]

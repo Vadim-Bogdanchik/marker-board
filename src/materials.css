@@ -1,0 +1,361 @@
+/* Photographic enamel, metal and paper. All assets are bundled for offline use. */
+:root {
+  font-family: 'Neucha', cursive;
+  font-weight: 400;
+  --ink: #263040;
+  --yellow: #f7de86;
+  --lightblue: #bbd9eb;
+  --lilac: #dbc8e5;
+  background: #acafad;
+}
+h1, h2, .column-name, .marker-button, .toolbar nav, .add-note {
+  font-family: 'Caveat', cursive;
+}
+.frame {
+  position: relative;
+  isolation: isolate;
+  margin: 9px;
+  padding: 17px 17px 26px;
+  height: calc(100dvh - 18px);
+  min-height: 0;
+  border-radius: 15px;
+  box-shadow: 0 2px 3px #10182155, 4px 13px 20px -7px #17212466;
+}
+.board-materials {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+.board-plate {
+  position: absolute;
+  inset: 0;
+  border-style: solid;
+  border-width: 17px 17px 26px;
+  border-image-slice: 32 32 48 32 fill;
+  border-image-repeat: stretch;
+  transition: opacity 1.4s ease;
+}
+.day-plate { border-image-source: url('/materials/board-day.png'); }
+.night-plate { border-image-source: url('/materials/board-night.png'); opacity: 0; }
+[data-theme=night] .night-plate { opacity: 1; }
+[data-theme=night] .day-plate { opacity: 0; }
+.enamel {
+  position: relative;
+  overflow: hidden;
+  border-radius: 5px;
+  height: 100%;
+  min-height: 0;
+}
+/* The frame follows the browser viewport; only its working areas scroll. */
+html, body, #root { height: 100%; overflow: hidden; }
+.board-content {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 42px;
+}
+.board-controls {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 50%;
+  overflow: auto;
+  padding: 4px 5px 0;
+  margin: -4px -5px 0;
+  scrollbar-width: thin;
+}
+.columns {
+  flex: 1 1 0;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+  overflow-y: hidden;
+  padding-bottom: 5px;
+}
+.column { min-height: 0; }
+.column-heading, .wip-warning, .add-note { flex-shrink: 0; }
+.column-heading { margin-bottom: 8px; }
+.note-stack {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px 9px 22px;
+  margin: 0 -5px;
+  scrollbar-width: thin;
+  scrollbar-color: #77839566 transparent;
+}
+.note-stack > .note-slot { flex-shrink: 0; }
+.add-note { margin-top: 0; padding-top: 10px; }
+.empty-intro { flex-shrink: 0; max-height: 25%; overflow: auto; }
+.no-results { flex-shrink: 0; }
+.today-view, .archive-view {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  width: 100%;
+  scrollbar-width: thin;
+}
+.board-lighting { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+/* Enamel scatters the reflected scene: the board material must dominate.
+   Diffuse the composite after the branches and window have been layered, so
+   neither sharp leaf silhouettes nor crisp mullions read as a mirror. */
+.window-photograph {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: .34;
+  filter: blur(3.2px) saturate(.45) contrast(.84) brightness(1.04);
+  mask-image: linear-gradient(100deg, #000e 0%, #000b 25%, #0006 58%, #0009 100%);
+  transition: opacity 1.4s ease;
+}
+.window-foreground, .window-garden {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.window-foreground { object-fit: fill; z-index: 1; }
+.window-garden { background: #fbfcf3; overflow: hidden; }
+.garden-branch { position: absolute; transform: rotate(var(--rest-angle)); }
+.garden-branch.far { opacity: .3; filter: blur(1.1px) saturate(.7); }
+.garden-branch.near { opacity: .49; filter: blur(.35px) saturate(.7); }
+.branch-wind, .branch-tip { transform-origin: var(--stem-origin); }
+.branch-wind { animation: branch-gust 14s var(--wind-delay) cubic-bezier(.45, 0, .3, 1) infinite; }
+.branch-tip { display: block; width: 100%; height: auto; animation: twig-settle var(--tip-duration) var(--tip-delay) ease-in-out infinite; }
+/* One passing gust moves connected leaves together, followed by a small rebound
+   and a quiet interval. No pixel warping, changing opacity or image crossfades. */
+@keyframes branch-gust {
+  0%, 18%, 100% { transform: rotate(0deg); }
+  36% { transform: rotate(2.6deg); }
+  48% { transform: rotate(1.8deg); }
+  61% { transform: rotate(3.3deg); }
+  78% { transform: rotate(-.8deg); }
+  90% { transform: rotate(.35deg); }
+}
+@keyframes twig-settle {
+  0%, 36%, 100% { transform: rotate(0deg); }
+  57% { transform: rotate(.65deg); }
+  75% { transform: rotate(-.4deg); }
+}
+.window-photograph[data-paused=true] .branch-wind,
+.window-photograph[data-paused=true] .branch-tip { animation-play-state: paused; }
+[data-theme=night] .window-photograph { opacity: .035; }
+@media (prefers-reduced-motion: reduce) {
+  .window-photograph { transition: none; }
+  .branch-wind, .branch-tip { animation: none; }
+}
+/* Disabled reflections are unmounted; reduced motion keeps a static reflection. */
+
+.note {
+  position: relative;
+  isolation: isolate;
+  background: none;
+  transform: rotate(var(--tilt, 0deg));
+  border-radius: 2px 3px 20px 2px;
+}
+.note-paper {
+  position: absolute;
+  inset: -3px -4px -6px;
+  z-index: -1;
+  pointer-events: none;
+  background: url('/materials/paper.png') center / 100% 100% no-repeat;
+  filter: drop-shadow(1px 2px 1px #30332538) drop-shadow(4px 9px 5px #2530332c);
+  transition: filter .25s ease;
+}
+.paper-pigment {
+  position: absolute;
+  inset: 0;
+  background: var(--note-color);
+  mask: url('/materials/paper.png') center / 100% 100% no-repeat;
+  mix-blend-mode: multiply;
+  transition: background-color 1.4s ease;
+}
+.paper-mirrored .note-paper { transform: scaleX(-1); }
+.note:hover .note-paper { filter: drop-shadow(1px 2px 1px #30332538) drop-shadow(5px 12px 7px #2530333b); }
+.lifted { transform: rotate(-2.2deg) scale(1.035); cursor: grabbing; animation: note-peel 160ms ease-out; }
+.lifted .note-paper { filter: drop-shadow(11px 20px 12px #17213055); }
+.note-slot { position: relative; min-width: 0; }
+.note-placeholder { border-radius: 3px 5px 14px 3px; background: #657f9d0b; outline: 1px dashed #657f9d66; outline-offset: -3px; }
+.note-placeholder > .note { opacity: 0; pointer-events: none; }
+.note-landing > .note { animation: note-adhere 180ms 270ms ease-out both; }
+.is-dragging .note-open { cursor: grabbing; }
+.is-dragging .note-slot:not(.note-placeholder) { pointer-events: none; }
+@keyframes note-peel {
+  from { transform: rotate(0deg) scale(1); }
+  to { transform: rotate(-2.2deg) scale(1.035); }
+}
+@keyframes note-adhere {
+  0% { transform: rotate(var(--tilt, 0deg)) scale(1.018); }
+  65% { transform: rotate(var(--tilt, 0deg)) scale(.995); }
+  100% { transform: rotate(var(--tilt, 0deg)) scale(1); }
+}
+.note-open { padding-bottom: 36px; font-weight: 400; }
+.note h3 { font-size: 24px; font-weight: 400; line-height: 1.15; margin-bottom: 16px; }
+.note-meta { font-size: 19px; }
+.note-meta.project { font-size: 18px; }
+.note-meta:has(.age) { flex-wrap: wrap; }
+.note-meta .age { flex-basis: 100%; margin-left: 26px; }
+.dependency-row > span, .directory-list span, .today-item > span { min-width: 0; overflow-wrap: anywhere; }
+.paper-modal { overscroll-behavior: contain; }
+.note-warning { font-size: 18px; font-weight: 400; }
+.note-top { margin-bottom: 10px; min-height: 30px; padding-right: 42px; }
+.note-top .category { min-width: 0; overflow-wrap: anywhere; }
+.note-marks { flex-shrink: 0; }
+/* Ink stays inside the paper; the larger transparent target is easy to grab. */
+.note .drag-handle {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  color: #263e5b;
+  background: none;
+  opacity: 1;
+  cursor: grab;
+  touch-action: none;
+  border-radius: 42% 48% 45% 40%;
+}
+.marker-grip { transform: rotate(-6deg); pointer-events: none; }
+.note .drag-handle:hover:not(:disabled), .note .drag-handle:focus-visible { color: var(--blue); background: #204e9d0b; }
+.note .drag-handle:focus-visible { outline-offset: -2px; }
+.note .drag-handle:active, .lifted .drag-handle { cursor: grabbing; }
+.note .drag-handle:disabled { opacity: .45; cursor: wait; }
+.lifted .drag-handle { pointer-events: none; }
+.category { font-size: 14px; }
+.note-order { right: 28px; bottom: 5px; gap: 3px; color: #263e5b; }
+.note-order button { display: grid; place-items: center; width: 30px; height: 28px; padding: 1px 4px; }
+.marker-order-arrow { pointer-events: none; transform: rotate(-4deg); }
+.note-order button:last-child .marker-order-arrow { transform: rotate(3deg); }
+.filters select { font-size: 21px; }
+.daily-strip button { font-size: 21px; }
+.legend { font-size: 18px; }
+.column-name { font-weight: 600; font-size: clamp(24px, 2.2vw, 35px); white-space: normal; }
+.column:first-child { padding-left: 5px; }
+.column:last-child { padding-right: 6px; }
+.columns { scrollbar-width: thin; scrollbar-color: #77839566 transparent; }
+.search input { font-size: 23px; }
+.saved-state { font-size: 16px; }
+.paper-modal { background-image: url('/materials/paper.png'); background-size: 100% 100%; background-blend-mode: multiply; }
+/* Task details scroll on their own sheet; actions never cover its curled edge. */
+.paper-modal.wide.task-editor {
+  height: calc(100dvh - 39px);
+  padding: 0;
+  overflow: hidden;
+  background: var(--paper) url('/grain.svg');
+  transform: none;
+}
+.task-editor[open] { display: flex; flex-direction: column; }
+.task-editor > .modal-heading {
+  flex: none;
+  margin: 0;
+  padding: 18px 27px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.task-editor .task-form { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.task-editor-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: #77839566 transparent;
+  scroll-padding: 24px;
+  padding: 10px 8px 12px;
+}
+.task-editor-sheet {
+  position: relative;
+  isolation: isolate;
+  padding: 20px 24px 100px;
+  min-height: 100%;
+}
+/* Nine-slice paper preserves a small, natural corner on arbitrarily long forms.
+   The curl occupies the reserved bottom margin, outside all interactive content. */
+.task-editor-sheet::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border: solid transparent;
+  border-width: 16px 90px 90px 16px;
+  border-image: url('/materials/paper.png') 65 350 350 65 fill / 16px 90px 90px 16px / 0 stretch;
+  filter: drop-shadow(0 2px 1px #35362924);
+}
+[data-theme=night] .task-editor-sheet::before {
+  filter: sepia(.18) brightness(.86) drop-shadow(0 2px 1px #17233035);
+}
+.task-editor-actions {
+  flex: none;
+  padding: 12px 30px 15px;
+  border-top: 1px solid var(--line);
+  background: var(--paper) url('/grain.svg');
+  box-shadow: 0 -5px 12px #343b4310;
+}
+.task-editor-actions .save-bar {
+  position: static;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.task-editor-actions .error-text { margin: 0 0 10px; max-height: 18dvh; overflow: auto; }
+@media (max-width: 650px) {
+  .paper-modal.wide.task-editor { height: calc(100dvh - 29px); }
+  .task-editor > .modal-heading { padding: 14px 20px 10px; }
+  .task-editor-scroll { padding: 6px 3px 8px; }
+  .task-editor-sheet { padding: 16px 17px 100px; }
+  .task-editor-actions { padding: 10px 20px 12px; }
+  .task-editor-actions .save-bar { gap: 6px 12px; }
+  .task-editor-actions .save-bar small { font-size: 16px; }
+}
+.next-step { background: var(--yellow) url('/materials/paper.png') center / 100% 100%; background-blend-mode: multiply; }
+.tray {
+  position: absolute;
+  bottom: 10px;
+  right: 8%;
+  width: min(550px, 76%);
+  height: 60px;
+  overflow: hidden;
+  z-index: 3;
+  pointer-events: none;
+}
+.tray img {
+  position: absolute;
+  width: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  filter: drop-shadow(2px 3px 1px #19212866);
+  transition: filter 1.4s ease;
+}
+[data-theme=night] {
+  --ink: #172338;
+  --muted: #303c4e;
+  --blue: #143976;
+  --yellow: #d6b26f;
+  --lightblue: #9fb5c2;
+  --lilac: #bca3bc;
+  background: #252b32;
+}
+[data-theme=night] .note-paper { filter: drop-shadow(-2px 2px 1px #17203355) drop-shadow(-6px 10px 6px #15203250); }
+[data-theme=night] .note:hover .note-paper { filter: drop-shadow(-2px 2px 1px #17203355) drop-shadow(-8px 13px 8px #15203260); }
+[data-theme=night] .lifted .note-paper { filter: drop-shadow(-12px 20px 12px #131d2d66); }
+[data-theme=night] .tray img { filter: sepia(.3) brightness(.7) drop-shadow(-4px 3px 2px #101b2780); }
+@media (max-width: 650px) {
+  .frame { margin: 5px; padding: 12px 12px 22px; height: calc(100dvh - 10px); }
+  .board-plate { border-width: 12px 12px 22px; }
+  .enamel { min-height: 0; }
+  .note h3 { font-size: 25px; }
+  .note-meta { font-size: 21px; }
+  .tray { right: 6%; width: 85%; height: 30px; }
+  .column-name { font-size: 29px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .board-plate, .note-paper, .paper-pigment, .tray img { transition: none; }
+}

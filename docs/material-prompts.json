@@ -1,0 +1,39 @@
+[
+  {
+    "key": "board-day",
+    "args": {
+      "prompt": "Use case: background-extraction / product-mockup. Edit this reference into a reusable EMPTY PHOTOGRAPHIC MATERIAL PLATE for the actual website. Keep the same front-on orthographic white enamel whiteboard, realistic narrow extruded brushed aluminum frame, beautifully rounded physical metal corner joints, and recessed aluminum pen tray along the bottom. Remove ALL writing, ALL sticky notes, ALL controls, ALL icons, ALL dividers, ALL markers, and any eraser. The entire board is now completely blank. Preserve extremely convincing fine enamel microtexture, faint old wiping traces at the periphery, metal machining detail and true optical specular glints. This is a photograph, not an illustration or CGI gradient. Match reference framing: board fills the entire 16:10 landscape image, metal frame within outer 2% of image, exactly frontal, no surrounding wall or office. No text, no objects, no logo. Critically remove ALL fixed window silhouettes, curtain folds, foliage shadows and reflected window bars: the application will add those as animated overlays. Keep only smooth realistic base illumination and fine physical material texture. DAYLIGHT version. Neutral natural daylight, bright white glazed enamel, soft broad neutral sheen across the upper-left. Keep center very clean white, subtly cool shadows close to the silver frame; do not bake a window shape into the board. Preserve photographic material richness. This will be a nine-slice background behind real interactive content.",
+      "transparent_background": false
+    },
+    "reference_note": "Original day/evening concept render; local generation path omitted."
+  },
+  {
+    "key": "board-night",
+    "args": {
+      "prompt": "Use case: background-extraction / product-mockup. Edit this reference into a reusable EMPTY PHOTOGRAPHIC MATERIAL PLATE for the actual website. Keep the same front-on orthographic white enamel whiteboard, realistic narrow extruded brushed aluminum frame, beautifully rounded physical metal corner joints, and recessed aluminum pen tray along the bottom. Remove ALL writing, ALL sticky notes, ALL controls, ALL icons, ALL dividers, ALL markers, and any eraser. The entire board is now completely blank. Preserve extremely convincing fine enamel microtexture, faint old wiping traces at the periphery, metal machining detail and true optical specular glints. This is a photograph, not an illustration or CGI gradient. Match reference framing: board fills the entire 16:10 landscape image, metal frame within outer 2% of image, exactly frontal, no surrounding wall or office. No text, no objects, no logo. Critically remove ALL fixed window silhouettes, curtain folds, foliage shadows and reflected window bars: the application will add those as animated overlays. Keep only smooth realistic base illumination and fine physical material texture. EVENING version. Preserve this reference's wonderful dim room, strong warm amber pool from the upper-right lamp outside the frame, cooler blue-gray ambient fill on left. The SAME white enamel appears warm taupe where lit and softly blue-gray where shaded. Keep the surface bright enough for dark marker lettering that will be added later, no nearly black areas. A realistic grazing specular lamp reflection shows the glossy enamel microtexture on upper-right. Keep the warm/cool gradient photographic and organic, not a flat linear gradient. The silver frame has warm right-side glints and cool left-side glints. No visible lamp itself. NO bright window shapes.",
+      "transparent_background": false
+    },
+    "reference_note": "Original day/evening concept render; local generation path omitted."
+  },
+  {
+    "key": "paper",
+    "args": {
+      "prompt": "Use case: product-mockup. One isolated blank real paper sticky note, nearly square, straight-on orthographic front view. Genuine TRANSPARENT BACKGROUND with alpha, no checkerboard or backdrop. A single thin sheet of off-white ivory paper, neutral nearly grayscale, with fine realistic cellulose fibers, tiny natural imperfections and slight waviness. Top adhesive strip pressed flat; lower free edge bows gently toward the camera, bottom-right corner lifts a few millimeters, showing an extremely thin paper edge and a subtle soft gray fold gradient. Do NOT show an exaggerated folded triangular corner. The lighting is neutral soft diffuse daylight from upper left. The paper fills 96% of the square canvas with only a tiny transparent margin; a coherent rectangular center remains perfectly usable for text. NO writing, NO yellow coloration, NO stationery, NO stack, NO hands, NO cast shadow beyond the silhouette. The material must look like high-resolution macro photography of an actual sticky note, not a rounded UI rectangle or vector illustration. Intended as a tintable paper substrate below editable text; prioritize subtle photorealistic paper texture and natural edge curl.",
+      "transparent_background": true
+    }
+  },
+  {
+    "key": "markers",
+    "args": {
+      "prompt": "Use case: product-mockup. Photorealistic transparent-background cutout for a web interface: two genuine dry-erase whiteboard markers lying horizontally side-by-side, one blue cap and one black cap, white slightly worn cylindrical bodies with fine molded seams, ribbed plastic caps and small gray technical printing without any recognizable brand. Blue marker on the left, black marker on the right, caps point left. Add one small used charcoal felt whiteboard eraser positioned further to their left. All three objects lie on the same horizontal baseline as if resting in a pen tray, viewed from the front and slightly above, consistent with looking straight at a wall-mounted board. They are separate objects with small gaps; no overlapping. Tight very wide horizontal composition, objects spanning almost full canvas width, minimal transparent margin, no surface, no tray, no board, no surrounding scene, no background, TRUE ALPHA transparency. Extremely realistic product photography, real plastic reflections, soft neutral daylight from upper left. Do not draw or illustrate them. Do not bake large drop shadows. Their proportions must be those of real markers (marker body length about 8x its diameter).",
+      "transparent_background": true
+    }
+  },
+  {
+    "key": "foliage",
+    "args": {
+      "prompt": "Use case: photorealistic-natural / texture asset. A grayscale photographic optical shadow map of leafy tree branches outside a window, as softly projected onto a white surface. Image fills a square canvas. Pure white background with organic soft neutral-gray silhouettes: small clusters of leaves and a few very slender branches, mostly toward the left and lower edges, airy white gaps occupying 65 percent of the image, open white center and upper-right. Blurred leaf-shaped penumbra with varied softness, faint overlapping leaf layers, tonal range white to medium gray, never solid black. Actual photographic sunlight shadow quality, not a drawing, not brush strokes, no visible green leaves, no window frame, no curtain, no objects, no text, no vignette, no noise or grid. The pattern fades gently to white at the outer edges so it can be multiplied onto an enamel whiteboard. Intended as two independently animated reflection layers to evoke trees moving in a breeze.",
+      "transparent_background": false
+    }
+  }
+]
