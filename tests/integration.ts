@@ -9,6 +9,7 @@ import { backupSqlite } from '../server/sqlite.js';
 import { createStore } from '../server/store.js';
 import { makeApp } from '../server/app.js';
 import { migrate } from '../server/migrate.js';
+import { makeSketchItem } from '../shared/sketch.js';
 import { newTask, type Board } from '../shared/model.js';
 
 test('real SQLite: API, transactions, imports, persistence, access checks and failed migration',async()=>{
@@ -33,7 +34,7 @@ test('real SQLite: API, transactions, imports, persistence, access checks and fa
     const broken=structuredClone(exported);broken.board.tasks[0].columnId=crypto.randomUUID();r=await act({type:'import',backup:broken},b.revision);assert.equal(r.statusCode,400);assert.deepEqual(await get(),b);
     r=await act({type:'deleteTask',id:dep.id},b.revision);assert.equal(r.statusCode,200);b=r.json();
     r=await act({type:'import',backup:exported},b.revision);assert.equal(r.statusCode,200,r.body);b=r.json();
-    assert.deepEqual({...b,revision:exported.board.revision},exported.board);
+    assert.deepEqual({...b,revision:exported.board.revision,sketch:{...b.sketch,revision:exported.board.sketch.revision}},exported.board);
     const badOrigin=await app.inject({method:'POST',url:'/api/actions',headers:{...headers,origin:'https://untrusted.invalid'},payload:{revision:b.revision,action:{type:'demo'}}});assert.equal(badOrigin.statusCode,403);
     const badHost=await app.inject({url:'/api/board',headers:{host:'untrusted.invalid'}});assert.equal(badHost.statusCode,403);
     const noToken=await app.inject({method:'POST',url:'/api/actions',headers:{host:'localhost:3000',origin:'http://localhost:3000'},payload:{revision:b.revision,action:{type:'demo'}}});assert.equal(noToken.statusCode,403);
@@ -43,13 +44,14 @@ test('real SQLite: API, transactions, imports, persistence, access checks and fa
     // and produce a consistent SQLite backup before attempting an upgrade.
     await mkdir(dir,{recursive:true});
     await writeFile(path.join(dir,'001_initial.sql'),await readFile('server/migrations/001_initial.sql'));
-    await writeFile(path.join(dir,'002_broken.sql'),'CREATE TABLE rollback_probe(id integer); SELECT nonexistent_function();');
+    await writeFile(path.join(dir,'002_sketch.sql'),await readFile('server/migrations/002_sketch.sql'));
+    await writeFile(path.join(dir,'003_broken.sql'),'CREATE TABLE rollback_probe(id integer); SELECT nonexistent_function();');
     await assert.rejects(migrate(connection,{migrationDir:dir,backupDir:dir}));
     assert.deepEqual(await store.get(),b);
     const raw=new DatabaseSync(connection);
     try {
       assert.equal(raw.prepare("SELECT count(*) AS n FROM sqlite_master WHERE name='rollback_probe'").get()!.n,0);
-      assert.equal(raw.prepare("SELECT count(*) AS n FROM schema_migrations WHERE name='002_broken.sql'").get()!.n,0);
+      assert.equal(raw.prepare("SELECT count(*) AS n FROM schema_migrations WHERE name='003_broken.sql'").get()!.n,0);
     }finally{raw.close();}
     const dump=(await readdir(dir)).find(name=>name.startsWith('before-migration-')&&name.endsWith('.sqlite'));assert.ok(dump,'Migration backup exists');
     const restored=createStore(path.join(dir,dump));try{assert.deepEqual(await restored.get(),b);}finally{await restored.close();}
@@ -133,10 +135,45 @@ test('complete multi-team API workflow: directories, task fields, archive, expor
     await act({type:'saveTask',task:{...b.tasks.find(t=>t.id===archived.id),archived:true}},400);
     await act({type:'settings',settings:{theme:'night',motion:false,wipLimit:1}});assert.deepEqual((await store.get()).settings,{theme:'night',motion:false,wipLimit:1});
     const exported=(await app.inject({url:'/api/export',headers})).json();await act({type:'deleteTask',id:task.id});await act({type:'deleteDirectory',id:item.id});
-    await act({type:'import',backup:exported});assert.deepEqual({...await store.get(),revision:exported.board.revision},exported.board);
+    await act({type:'import',backup:exported});assert.deepEqual({...await store.get(),revision:exported.board.revision,sketch:{...b.sketch,revision:exported.board.sketch.revision}},exported.board);
     const before=await store.get();await act({type:'import',backup:{...exported,version:999}},400);await act({type:'saveTask',task:{...task,dueDate:'2026-02-30'}},400);assert.deepEqual(await store.get(),before);
     const malformed=await app.inject({method:'POST',url:'/api/actions',headers,payload:'{broken'});assert.equal(malformed.statusCode,400);
     const raw=new DatabaseSync(path.join(dir,'board.sqlite'));raw.exec("CREATE TRIGGER fail_api_write BEFORE INSERT ON tasks BEGIN SELECT RAISE(ABORT, 'private db failure'); END;");
     try {const r=await act({type:'deleteTask',id:task.id},500);assert.equal(r.json().code,'SERVER');assert.ok(!r.body.includes('private db failure')&&!r.body.includes('insert into'));assert.deepEqual(await store.get(),before);}finally{raw.exec('DROP TRIGGER fail_api_write');raw.close();}
   }finally{await app.close();await store.close();await rm(dir,{recursive:true,force:true});}
+});
+
+test('sketch API: separate revisions, conflicting tabs, rollback, export/import and restart',async()=>{
+  const dir=await mkdtemp(path.join(tmpdir(),'marker-sketch-')),store=await prepareDatabase(dir),app=await makeApp(store,false);
+  const headers={host:'localhost:3000',origin:'http://localhost:3000','content-type':'application/json','x-board-request':'1'};
+  const post=(revision:number,items:unknown)=>app.inject({method:'POST',url:'/api/sketch',headers,payload:{revision,items}});
+  try {
+    const b=await store.get(),block={...makeSketchItem('rect',100,100),text:'Запрос API',erasures:[{points:[[15,20] as [number,number]],size:357,scaleX:1.5,scaleY:.5}]},arrow={...makeSketchItem('arrow',300,150),text:'JSON'};
+    let r=await post(0,[block,arrow]);assert.equal(r.statusCode,200,r.body);const sketch=r.json();assert.equal(sketch.revision,1);
+    assert.equal((await store.get()).revision,b.revision);
+    const afterTask=await store.act(b.revision,{type:'saveTask',task:newTask(b,'Параллельная задача')});assert.deepEqual(afterTask.sketch,sketch);
+    r=await post(0,[]);assert.equal(r.statusCode,409);assert.equal(r.json().code,'SKETCH_STALE');
+    r=await post(1,[block,block]);assert.equal(r.statusCode,400);assert.deepEqual((await store.get()).sketch,sketch);
+    const badOrigin=await app.inject({method:'POST',url:'/api/sketch',headers:{...headers,origin:'https://example.com'},payload:{revision:1,items:[]}});assert.equal(badOrigin.statusCode,403);
+    const raw=new DatabaseSync(path.join(dir,'board.sqlite'));
+    try {raw.exec("CREATE TRIGGER fail_sketch BEFORE UPDATE ON sketches BEGIN SELECT RAISE(ABORT, 'disk failure'); END;");r=await post(1,[]);assert.equal(r.statusCode,500);assert.deepEqual((await store.get()).sketch,sketch);raw.exec('DROP TRIGGER fail_sketch');}finally{raw.close();}
+    const backup=(await app.inject({url:'/api/export',headers})).json();assert.equal(backup.version,2);assert.deepEqual(backup.board.sketch,sketch);
+    r=await post(1,[]);assert.equal(r.statusCode,200);
+    const restored=await store.act(afterTask.revision,{type:'import',backup});assert.deepEqual(restored.sketch.items,sketch.items);assert.equal(restored.sketch.revision,3);
+    r=await post(2,[]);assert.equal(r.statusCode,409,'A pending edit cannot replace a restored board');
+    const broken=structuredClone(backup);broken.board.sketch.items[0].x='bad';await assert.rejects(store.act(restored.revision,{type:'import',backup:broken}));assert.deepEqual(await store.get(),restored);
+    await app.close();await store.close();const reopened=await prepareDatabase(dir);try{assert.deepEqual(await reopened.get(),restored);}finally{await reopened.close();}
+  }finally{await app.close();await store.close();await rm(dir,{recursive:true,force:true});}
+});
+
+test('upgrade from the original SQLite schema preserves tasks and creates an empty sketch',async()=>{
+  const dir=await mkdtemp(path.join(tmpdir(),'marker-upgrade-')),file=path.join(dir,'board.sqlite');
+  const store=await prepareDatabase(dir);let previous:Board;
+  try {let b=await store.get();previous=await store.act(b.revision,{type:'saveTask',task:newTask(b,'Существующая задача')});}finally{await store.close();}
+  const raw=new DatabaseSync(file);
+  try {raw.exec("DROP TABLE sketches; DELETE FROM schema_migrations WHERE name='002_sketch.sql';");}finally{raw.close();}
+  try {
+    const upgraded=await prepareDatabase(dir);try{assert.deepEqual(await upgraded.get(),previous);}finally{await upgraded.close();}
+    const copies=await readdir(path.join(dir,'backups'));assert.ok(copies.some(name=>name.startsWith('before-migration-')));
+  }finally{await rm(dir,{recursive:true,force:true});}
 });

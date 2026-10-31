@@ -12,4 +12,5 @@ import { App } from './App';
 import './styles.css';
 import './materials.css';
 import './responsive.css';
+import './sketch/sketch.css';
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);

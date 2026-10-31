@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 export function Icon({name,size=23}:{name:string;size?:number}) {
   const paths:Record<string,ReactNode>={
+    sketch:<><path d="m4 20 3-7L18 2l4 4-11 11zM7 13l4 4M3 22q7-2 17-1"/></>,
     compact:<><path d="m3 5 3-.2v3H3zM10 6h11M3 11h3v3H3zM10 12h11M3 17h3v3H3zM10 18h11"/></>,
     full:<><path d="m3 3 18 .3-.2 18L3 21zM7 7h10M7 12h10M7 17h6"/></>,
     more:<><path d="M4 11v2m8-2v2m8-2v2" strokeWidth="3.5"/></>,

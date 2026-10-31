@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import ru from 'zod/v4/locales/ru.js';
+import { sketchSchema, emptySketch } from './sketch.js';
 z.config(ru());
 
 export const stages = ['inbox', 'todo', 'doing', 'review', 'done'] as const;
@@ -30,8 +31,9 @@ export const settingsSchema = z.object({ theme: z.enum(['day', 'night']), motion
 export const stateSchema = z.object({
   id: z.literal(boardId), revision: z.number().int().min(0), columns: z.array(columnSchema).length(5),
   directories: z.array(directorySchema).max(2000), tasks: z.array(taskSchema).max(10000), settings: settingsSchema,
+  sketch: sketchSchema.default(emptySketch),
 }).strict();
-export const backupSchema = z.object({ format: z.literal('marker-board'), version: z.literal(1), exportedAt: timestamp, board: stateSchema }).strict();
+export const backupSchema = z.object({ format: z.literal('marker-board'), version: z.union([z.literal(1),z.literal(2)]), exportedAt: timestamp, board: stateSchema }).strict();
 export type Task = z.infer<typeof taskSchema>;
 export type Board = z.infer<typeof stateSchema>;
 export type Directory = z.infer<typeof directorySchema>;
@@ -39,7 +41,7 @@ export type Stage = typeof stages[number];
 
 export function initialBoard(): Board {
   return { id: boardId, revision: 0, columns: stages.map((stage, i) => ({ id: columnIds[i], stage, title: ['Входящие', 'К выполнению', 'В работе', 'На согласовании', 'Готово'][i] })),
-    directories: [{ id: ownerId, kind: 'person', name: 'Вы' }], tasks: [], settings: { theme: 'day', motion: true, wipLimit: 3 } };
+    directories: [{ id: ownerId, kind: 'person', name: 'Вы' }], tasks: [], settings: { theme: 'day', motion: true, wipLimit: 3 }, sketch: emptySketch() };
 }
 export function newTask(board: Board, title: string, columnId = board.columns[0].id): Task {
   const now = new Date().toISOString();
@@ -70,13 +72,20 @@ export function validateBoard(input: unknown): Board {
     if (t.startedAt && t.startedAt < t.createdAt || t.completedAt && (!t.startedAt || t.completedAt < t.startedAt)) throw new BoardError('Некорректная история дат задачи');
     if ((stageOf(board, t) === 'done') !== !!t.completedAt) throw new BoardError('Дата завершения не соответствует этапу задачи');
   }
-  const visited = new Set<string>(), visiting = new Set<string>();
-  function visit(id: string) {
-    if (visiting.has(id)) throw new BoardError('Зависимость создаёт замкнутый круг');
-    if (visited.has(id)) return;
-    visiting.add(id); tasks.get(id)!.dependencies.forEach(visit); visiting.delete(id); visited.add(id);
+  // Iterative topological traversal also handles imported chains up to the
+  // 10,000-task limit without exhausting the JavaScript call stack.
+  const remaining=new Map<string,number>(),dependents=new Map<string,string[]>(),ready:string[]=[];
+  for(const t of board.tasks){
+    remaining.set(t.id,t.dependencies.length);
+    if(!t.dependencies.length)ready.push(t.id);
+    for(const dep of t.dependencies){const list=dependents.get(dep);if(list)list.push(t.id);else dependents.set(dep,[t.id]);}
   }
-  board.tasks.forEach(t => visit(t.id));
+  for(let i=0;i<ready.length;i++){
+    for(const dependent of dependents.get(ready[i])??[]){
+      const count=remaining.get(dependent)!-1;remaining.set(dependent,count);if(!count)ready.push(dependent);
+    }
+  }
+  if(ready.length!==board.tasks.length)throw new BoardError('Зависимость создаёт замкнутый круг');
   return board;
 }
 export function localDate(d = new Date()): string {
@@ -149,7 +158,7 @@ export function applyAction(original: Board, action: Action): Board {
       board.directories = board.directories.filter(d => d.id !== action.id); break;
     case 'renameColumn': { const column = board.columns.find(c => c.id === action.id); if (!column) throw new BoardError('Колонка не найдена'); column.title = action.title; break; }
     case 'settings': board.settings = action.settings; break;
-    case 'import': board = validateBoard(action.backup.board); break;
+    case 'import': board = validateBoard(action.backup.board); board.sketch.revision=original.sketch.revision+1; break;
     case 'demo':
       if (board.tasks.length) throw new BoardError('Примеры можно загрузить только на пустую доску');
       board = demoBoard(board); break;

@@ -15,6 +15,6 @@ export function PaperSurface() {
   return <span className="note-paper" aria-hidden="true"><span className="paper-pigment"/></span>;
 }
 
-export function MarkerTray() {
-  return <footer className="tray" aria-hidden="true"><img src="/materials/markers.png" alt="" draggable={false}/></footer>;
+export function MarkerTray({sketch=false}:{sketch?:boolean}) {
+  return <footer className={`tray ${sketch?'sketch-marker-tray':''}`} aria-hidden="true"><img src="/materials/markers.png" alt="" draggable={false}/></footer>;
 }

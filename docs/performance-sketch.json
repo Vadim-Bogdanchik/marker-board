@@ -1,0 +1,83 @@
+{
+  "fixture": {
+    "items": 120,
+    "points": 48000,
+    "viewport": [
+      1280,
+      720
+    ],
+    "theme": "day",
+    "reflection": true,
+    "zoom": 1
+  },
+  "before": [
+    {
+      "items": 120,
+      "drawings": 1210,
+      "commits": 10,
+      "renderMedianMs": 40.7,
+      "renderP95Ms": 45.8,
+      "moves": 8,
+      "moveP95Ms": 0.3,
+      "frameMedianMs": 48.7,
+      "frameP95Ms": 100
+    },
+    {
+      "items": 120,
+      "drawings": 1452,
+      "commits": 12,
+      "renderMedianMs": 42.4,
+      "renderP95Ms": 55.5,
+      "moves": 8,
+      "moveP95Ms": 0.2,
+      "frameMedianMs": 34,
+      "frameP95Ms": 66.8
+    },
+    {
+      "items": 120,
+      "drawings": 1452,
+      "commits": 12,
+      "renderMedianMs": 47.9,
+      "renderP95Ms": 58.4,
+      "moves": 8,
+      "moveP95Ms": 0.2,
+      "frameMedianMs": 16.7,
+      "frameP95Ms": 50
+    }
+  ],
+  "after": [
+    {
+      "items": 120,
+      "drawings": 9,
+      "commits": 9,
+      "renderMedianMs": 0.8,
+      "renderP95Ms": 6.9,
+      "moves": 8,
+      "moveP95Ms": 0.3,
+      "frameMedianMs": 16.7,
+      "frameP95Ms": 33.3
+    },
+    {
+      "items": 120,
+      "drawings": 9,
+      "commits": 10,
+      "renderMedianMs": 0.5,
+      "renderP95Ms": 12.2,
+      "moves": 8,
+      "moveP95Ms": 0.2,
+      "frameMedianMs": 16.7,
+      "frameP95Ms": 50
+    },
+    {
+      "items": 120,
+      "drawings": 9,
+      "commits": 9,
+      "renderMedianMs": 0.5,
+      "renderP95Ms": 9.7,
+      "moves": 8,
+      "moveP95Ms": 0.1,
+      "frameMedianMs": 16.6,
+      "frameP95Ms": 49.8
+    }
+  ]
+}

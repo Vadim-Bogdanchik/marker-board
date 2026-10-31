@@ -1,6 +1,8 @@
 import { sqliteTable, text, integer, primaryKey } from 'drizzle-orm/sqlite-core';
 import type { Board, Task, Directory } from '../shared/model.js';
+import type { SketchItem } from '../shared/sketch.js';
 export const boards = sqliteTable('boards', { id: text('id').primaryKey(), revision: integer('revision').notNull(), settings: text('settings', {mode:'json'}).$type<Board['settings']>().notNull() });
+export const sketches = sqliteTable('sketches', { boardId:text('board_id').primaryKey().references(()=>boards.id), revision:integer('revision').notNull(), items:text('items',{mode:'json'}).$type<SketchItem[]>().notNull() });
 export const columns = sqliteTable('board_columns', { id: text('id').primaryKey(), boardId: text('board_id').notNull().references(()=>boards.id), position: integer('position').notNull(), stage: text('stage').notNull(), title: text('title').notNull() });
 export const directories = sqliteTable('directories', { id: text('id').primaryKey(), boardId: text('board_id').notNull().references(()=>boards.id), kind: text('kind').$type<Directory['kind']>().notNull(), name: text('name').notNull() });
 export const tasks = sqliteTable('tasks', { id: text('id').primaryKey(), boardId: text('board_id').notNull().references(()=>boards.id), columnId: text('column_id').notNull().references(()=>columns.id), position: integer('position').notNull(), data: text('data', {mode:'json'}).$type<Omit<Task,'id'|'columnId'|'dependencies'|'checklist'>>().notNull() });
