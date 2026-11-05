@@ -36,10 +36,8 @@ h1, h2, .column-name, .marker-button, .toolbar nav, .add-note {
   border-image-repeat: stretch;
   transition: opacity 1.4s ease;
 }
-.day-plate { border-image-source: url('/materials/board-day.png'); }
-.night-plate { border-image-source: url('/materials/board-night.png'); opacity: 0; }
-[data-theme=night] .night-plate { opacity: 1; }
-[data-theme=night] .day-plate { opacity: 0; }
+.board-plate { opacity: 0; }
+[data-surface=day] [data-plate=day], [data-surface=night] [data-plate=night] { opacity: 1; }
 .enamel {
   position: relative;
   overflow: hidden;
@@ -160,7 +158,7 @@ html, body, #root { height: 100%; overflow: hidden; }
   inset: -3px -4px -6px;
   z-index: -1;
   pointer-events: none;
-  background: url('/materials/paper.png') center / 100% 100% no-repeat;
+  background: url('/materials/paper.webp') center / 100% 100% no-repeat;
   filter: drop-shadow(1px 2px 1px #30332538) drop-shadow(4px 9px 5px #2530332c);
   transition: filter .25s ease;
 }
@@ -168,7 +166,7 @@ html, body, #root { height: 100%; overflow: hidden; }
   position: absolute;
   inset: 0;
   background: var(--note-color);
-  mask: url('/materials/paper.png') center / 100% 100% no-repeat;
+  mask: url('/materials/paper.webp') center / 100% 100% no-repeat;
   mix-blend-mode: multiply;
   transition: background-color 1.4s ease;
 }
@@ -241,7 +239,7 @@ html, body, #root { height: 100%; overflow: hidden; }
 .columns { scrollbar-width: thin; scrollbar-color: #77839566 transparent; }
 .search input { font-size: 23px; }
 .saved-state { font-size: 16px; }
-.paper-modal { background-image: url('/materials/paper.png'); background-size: 100% 100%; background-blend-mode: multiply; }
+.paper-modal { background-image: url('/materials/paper.webp'); background-size: 100% 100%; background-blend-mode: multiply; }
 /* Task details scroll on their own sheet; actions never cover its curled edge. */
 .paper-modal.wide.task-editor {
   height: calc(100dvh - 39px);
@@ -285,7 +283,7 @@ html, body, #root { height: 100%; overflow: hidden; }
   pointer-events: none;
   border: solid transparent;
   border-width: 16px 90px 90px 16px;
-  border-image: url('/materials/paper.png') 65 350 350 65 fill / 16px 90px 90px 16px / 0 stretch;
+  border-image: url('/materials/paper.webp') 65 350 350 65 fill / 16px 90px 90px 16px / 0 stretch;
   filter: drop-shadow(0 2px 1px #35362924);
 }
 [data-theme=night] .task-editor-sheet::before {
@@ -315,7 +313,7 @@ html, body, #root { height: 100%; overflow: hidden; }
   .task-editor-actions .save-bar { gap: 6px 12px; }
   .task-editor-actions .save-bar small { font-size: 16px; }
 }
-.next-step { background: var(--yellow) url('/materials/paper.png') center / 100% 100%; background-blend-mode: multiply; }
+.next-step { background: var(--yellow) url('/materials/paper.webp') center / 100% 100%; background-blend-mode: multiply; }
 .tray {
   position: absolute;
   bottom: 10px;

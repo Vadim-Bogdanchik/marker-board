@@ -45,13 +45,15 @@ test('real SQLite: API, transactions, imports, persistence, access checks and fa
     await mkdir(dir,{recursive:true});
     await writeFile(path.join(dir,'001_initial.sql'),await readFile('server/migrations/001_initial.sql'));
     await writeFile(path.join(dir,'002_sketch.sql'),await readFile('server/migrations/002_sketch.sql'));
-    await writeFile(path.join(dir,'003_broken.sql'),'CREATE TABLE rollback_probe(id integer); SELECT nonexistent_function();');
+    await writeFile(path.join(dir,'003_configurable_columns.sql'),await readFile('server/migrations/003_configurable_columns.sql'));
+    await writeFile(path.join(dir,'004_directory_links.sql'),await readFile('server/migrations/004_directory_links.sql'));
+    await writeFile(path.join(dir,'005_broken.sql'),'CREATE TABLE rollback_probe(id integer); SELECT nonexistent_function();');
     await assert.rejects(migrate(connection,{migrationDir:dir,backupDir:dir}));
     assert.deepEqual(await store.get(),b);
     const raw=new DatabaseSync(connection);
     try {
       assert.equal(raw.prepare("SELECT count(*) AS n FROM sqlite_master WHERE name='rollback_probe'").get()!.n,0);
-      assert.equal(raw.prepare("SELECT count(*) AS n FROM schema_migrations WHERE name='003_broken.sql'").get()!.n,0);
+      assert.equal(raw.prepare("SELECT count(*) AS n FROM schema_migrations WHERE name='005_broken.sql'").get()!.n,0);
     }finally{raw.close();}
     const dump=(await readdir(dir)).find(name=>name.startsWith('before-migration-')&&name.endsWith('.sqlite'));assert.ok(dump,'Migration backup exists');
     const restored=createStore(path.join(dir,dump));try{assert.deepEqual(await restored.get(),b);}finally{await restored.close();}
@@ -123,7 +125,21 @@ test('complete multi-team API workflow: directories, task fields, archive, expor
     const act=async(action:unknown,status=200)=>{const r=await app.inject({method:'POST',url:'/api/actions',headers,payload:{revision:b.revision,action}});assert.equal(r.statusCode,status,r.body);if(status===200)b=r.json();return r;};
     const seed=withTeamMocks(b);await act({type:'import',backup:{format:'marker-board',version:1,exportedAt:new Date().toISOString(),board:seed}});
     const item={id:crypto.randomUUID(),kind:'team',name:'Временная команда'};
-    await act({type:'saveDirectory',item});await act({type:'saveDirectory',item:{...item,name:'Переименованная команда'}});
+    const person = b.directories.find(d => d.kind === 'person')!;
+    const project = b.directories.find(d => d.kind === 'project')!;
+    const initialLinks = b.directoryLinks;
+    await act({type:'saveDirectory',item,linkedIds:[person.id,project.id]});
+    await act({type:'saveDirectory',item:{...item,name:'Переименованная команда'}});
+    const expectedLinks = [...initialLinks,{memberId:person.id,groupId:item.id},{memberId:item.id,groupId:project.id}];
+    assert.deepEqual((await store.get()).directoryLinks,expectedLinks);
+    for (const ids of [[item.id],[person.id,person.id],[crypto.randomUUID()]]) {
+      await act({type:'saveDirectory',item,linkedIds:ids},400);
+    }
+    await act({type:'saveDirectory',item:person,linkedIds:[project.id]},400);
+    assert.deepEqual((await store.get()).directoryLinks,expectedLinks);
+    await act({type:'saveDirectory',item,linkedIds:[person.id]});
+    assert.deepEqual(b.directoryLinks,expectedLinks.slice(0,-1));
+    await act({type:'saveDirectory',item:{...item,name:'Переименованная команда'},linkedIds:[person.id,project.id]});
     assert.equal((await store.get()).directories.find(d=>d.id===item.id)?.name,'Переименованная команда');
     const task={...newTask(b,'Полная карточка'),description:'Проверяем все поля',category:'colleague',priority:'high',assigneeId:b.directories.find(d=>d.name.includes('Максим'))!.id,teamId:item.id,projectId:b.directories.find(d=>d.kind==='project')!.id,dueDate:'2026-11-05',nextStep:'Обсудить API',waitingFor:'Платформа',waitingWhat:'Схема',remindOn:'2026-11-01',blockedReason:'Нет доступа',focused:true,checklist:[{id:crypto.randomUUID(),text:'Проверить контракт',done:true}],links:[{id:crypto.randomUUID(),title:'Спецификация',url:'https://example.com/qa'}]};
     await act({type:'saveTask',task});const persisted=(await store.get()).tasks.find(t=>t.id===task.id)!;
@@ -135,6 +151,7 @@ test('complete multi-team API workflow: directories, task fields, archive, expor
     await act({type:'saveTask',task:{...b.tasks.find(t=>t.id===archived.id),archived:true}},400);
     await act({type:'settings',settings:{theme:'night',motion:false,wipLimit:1}});assert.deepEqual((await store.get()).settings,{theme:'night',motion:false,wipLimit:1});
     const exported=(await app.inject({url:'/api/export',headers})).json();await act({type:'deleteTask',id:task.id});await act({type:'deleteDirectory',id:item.id});
+    assert.deepEqual(b.directoryLinks,initialLinks);
     await act({type:'import',backup:exported});assert.deepEqual({...await store.get(),revision:exported.board.revision,sketch:{...b.sketch,revision:exported.board.sketch.revision}},exported.board);
     const before=await store.get();await act({type:'import',backup:{...exported,version:999}},400);await act({type:'saveTask',task:{...task,dueDate:'2026-02-30'}},400);assert.deepEqual(await store.get(),before);
     const malformed=await app.inject({method:'POST',url:'/api/actions',headers,payload:'{broken'});assert.equal(malformed.statusCode,400);
@@ -157,7 +174,7 @@ test('sketch API: separate revisions, conflicting tabs, rollback, export/import 
     const badOrigin=await app.inject({method:'POST',url:'/api/sketch',headers:{...headers,origin:'https://example.com'},payload:{revision:1,items:[]}});assert.equal(badOrigin.statusCode,403);
     const raw=new DatabaseSync(path.join(dir,'board.sqlite'));
     try {raw.exec("CREATE TRIGGER fail_sketch BEFORE UPDATE ON sketches BEGIN SELECT RAISE(ABORT, 'disk failure'); END;");r=await post(1,[]);assert.equal(r.statusCode,500);assert.deepEqual((await store.get()).sketch,sketch);raw.exec('DROP TRIGGER fail_sketch');}finally{raw.close();}
-    const backup=(await app.inject({url:'/api/export',headers})).json();assert.equal(backup.version,2);assert.deepEqual(backup.board.sketch,sketch);
+    const backup=(await app.inject({url:'/api/export',headers})).json();assert.equal(backup.version,4);assert.deepEqual(backup.board.sketch,sketch);
     r=await post(1,[]);assert.equal(r.statusCode,200);
     const restored=await store.act(afterTask.revision,{type:'import',backup});assert.deepEqual(restored.sketch.items,sketch.items);assert.equal(restored.sketch.revision,3);
     r=await post(2,[]);assert.equal(r.statusCode,409,'A pending edit cannot replace a restored board');
@@ -176,4 +193,50 @@ test('upgrade from the original SQLite schema preserves tasks and creates an emp
     const upgraded=await prepareDatabase(dir);try{assert.deepEqual(await upgraded.get(),previous);}finally{await upgraded.close();}
     const copies=await readdir(path.join(dir,'backups'));assert.ok(copies.some(name=>name.startsWith('before-migration-')));
   }finally{await rm(dir,{recursive:true,force:true});}
+});
+
+test('upgrade populated columns, resize, transfer and reopen the exported layout', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(),'marker-columns-'));
+  const file = path.join(dir,'board.sqlite');
+  const old = path.join(dir,'old');
+  let store:ReturnType<typeof createStore> | undefined;
+  try {
+    await mkdir(old);
+    for (const name of ['001_initial.sql','002_sketch.sql'])
+      await writeFile(path.join(old,name),await readFile(path.join('server/migrations',name)));
+    await migrate(file,{migrationDir:old,backupDir:dir});
+    const {initialBoard,demoBoard} = await import('../shared/model.js');
+    const seed = demoBoard(initialBoard());
+    const raw = new DatabaseSync(file);
+    try {
+      raw.prepare('INSERT INTO boards VALUES (?,?,?)').run(seed.id,seed.revision,JSON.stringify(seed.settings));
+      seed.columns.forEach((c,i) => raw.prepare('INSERT INTO board_columns VALUES (?,?,?,?,?)').run(c.id,seed.id,i,c.stage,c.title));
+      seed.directories.forEach(d => raw.prepare('INSERT INTO directories VALUES (?,?,?,?)').run(d.id,seed.id,d.kind,d.name));
+      seed.tasks.forEach(({id,columnId,checklist,dependencies,...data},i) =>
+        raw.prepare('INSERT INTO tasks VALUES (?,?,?,?,?)').run(id,seed.id,columnId,i,JSON.stringify(data)));
+      seed.tasks.forEach(t => {
+        t.dependencies.forEach(d => raw.prepare('INSERT INTO dependencies VALUES (?,?)').run(t.id,d));
+        t.checklist.forEach((c,i) => raw.prepare('INSERT INTO checklist VALUES (?,?,?,?,?)').run(c.id,t.id,i,c.text,Number(c.done)));
+      });
+    } finally {raw.close();}
+    store = await prepareDatabase(dir);
+    assert.deepEqual(await store.get(),seed);
+    let b = await store.act(seed.revision,{type:'addColumn',title:'Выполняется',stage:'doing'});
+    const target = b.columns.find(c => c.title === 'Выполняется')!;
+    const source = seed.columns[2];
+    b = await store.act(b.revision,{type:'resizeColumns', changes:[{id:target.id,width:130},{id:source.id,width:70}]});
+    b = await store.act(b.revision,{type:'deleteColumn',id:source.id,destination:target.id});
+    assert.deepEqual(b.tasks.filter(t=>t.columnId===target.id).map(t=>t.id),seed.tasks.filter(t=>t.columnId===source.id).map(t=>t.id));
+    await store.close();
+    store = await prepareDatabase(dir);
+    assert.deepEqual(await store.get(),b);
+    assert.equal(b.columns.find(c=>c.id===target.id)?.width,130);
+    const app=await makeApp(store,false);
+    try {
+      const backup=(await app.inject({url:'/api/export',headers:{host:'localhost:3000'}})).json();
+      const restored=await store.act(b.revision,{type:'import',backup});
+      assert.deepEqual(restored.columns,b.columns);
+      assert.deepEqual(restored.tasks,b.tasks);
+    } finally {await app.close();}
+  } finally {await store?.close(); await rm(dir,{recursive:true,force:true});}
 });

@@ -44,7 +44,7 @@ export async function makeApp(store: Store, serveStatic = true, port = 3000, sta
   app.get('/api/sketch',async()=>(await store.get()).sketch);
   app.post('/api/sketch',async req=>{const body=z.object({revision:z.number().int().min(0),items:sketchItemsSchema}).strict().parse(req.body);return store.saveSketch(body.revision,body.items);});
   app.post('/api/actions',async req=>{const body=z.object({revision:z.number().int().min(0),action:actionSchema}).strict().parse(req.body);return store.act(body.revision,body.action);});
-  app.get('/api/export',async(_req,reply)=>{reply.header('Content-Disposition',`attachment; filename="marker-board-${new Date().toISOString().slice(0,10)}.json"`);return {format:'marker-board',version:2,exportedAt:new Date().toISOString(),board:await store.get()};});
+  app.get('/api/export',async(_req,reply)=>{reply.header('Content-Disposition',`attachment; filename="marker-board-${new Date().toISOString().slice(0,10)}.json"`);return {format:'marker-board',version:4,exportedAt:new Date().toISOString(),board:await store.get()};});
   if(serveStatic) {
     await app.register(staticPlugin,{root:staticRoot});
     app.setNotFoundHandler((req,reply)=>req.url.startsWith('/api')?reply.code(404).send({error:'Операция не найдена'}):reply.sendFile('index.html'));

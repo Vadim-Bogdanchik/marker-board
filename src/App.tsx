@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { dailyOverview, newTask, stageOf, type Action, type Board, type Task } from '../shared/model';
+import { dailyOverview, maxColumns, newTask, stageOf, type Action, type Board, type Task } from '../shared/model';
 import { ApiError, fetchBoard, sendAction } from './api';
 import { BoardView, categories } from './BoardView';
 import { TaskEditor } from './TaskEditor';
+import { ColumnManager, type ColumnPanel } from './ColumnManager';
 import { Settings } from './Settings';
 import { Icon, Modal, formatDate } from './ui';
 import { BoardMaterial, BoardLighting, MarkerTray } from './BoardMaterials';
@@ -21,7 +22,8 @@ export function App() {
   const [tab,setTab]=useState<Tab>('board'),[filters,setFilters]=useState(blankFilters),[editor,setEditor]=useState<Task|null>(null),[settings,setSettings]=useState(false);
   const [sketchOpened,setSketchOpened]=useState(false);
   const openSketch=()=>{setSketchOpened(true);setTab('sketch');};
-  const [quick,setQuick]=useState<string|null>(null),[title,setTitle]=useState(''),[rename,setRename]=useState<string|null>(null),[columnTitle,setColumnTitle]=useState('');
+  const [columnPanel,setColumnPanel]=useState<ColumnPanel|null>(null);
+  const [quick,setQuick]=useState<string|null>(null),[title,setTitle]=useState('');
   const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false), busyRef=useRef(false),[now,setNow]=useState(new Date());
   const update=useCallback((next:Board)=>{
     const current=boardRef.current;
@@ -44,7 +46,7 @@ export function App() {
     try {
       let result:Board;
       try {result=await sendAction(boardRef.current.revision,action);}catch(e){
-        if(e instanceof ApiError&&e.code==='DEPENDENCIES_OPEN'&&(action.type==='moveTask'||action.type==='saveTask')){
+        if(e instanceof ApiError&&e.code==='DEPENDENCIES_OPEN'&&(action.type==='moveTask'||action.type==='saveTask'||action.type==='deleteColumn')){
           if(!window.confirm(e.message))return false;result=await sendAction(boardRef.current.revision,{...action,confirmBlocked:true});
         } else throw e;
       }
@@ -64,10 +66,13 @@ export function App() {
     <select aria-label="Приоритет" value={filters.priority} onChange={e=>changeFilter('priority',e.target.value)}><option value="">Приоритет</option><option value="high">Высокий</option><option value="normal">Обычный</option><option value="low">Низкий</option></select>
     {activeFilter&&<button className="text-button clear-filter" onClick={()=>setFilters(blankFilters)}>Сбросить</button>}</>;
   const filterCount=Object.entries(filters).filter(([key,value])=>key!=='query'&&value).length;
-  const viewControls=tab==='board'&&<div className="board-view-tools"><span className="view-caption">Вид карточек</span><div className="density-switch" role="group" aria-label="Вид карточек"><button aria-pressed={density==='full'} onClick={()=>setDensity('full')} title="Подробные карточки: все основные поля"><Icon name="full" size={20}/>Подробно</button><button aria-pressed={density==='compact'} onClick={()=>setDensity('compact')} title="Компактные карточки: название, ответственный и важные сигналы"><Icon name="compact" size={20}/>Компактно</button></div></div>;
+  const editColumn=(id:string)=>setColumnPanel({kind:'edit',id});
+  const addColumnButton=<button className="add-column-button" type="button" aria-label="Добавить колонку"
+    disabled={board.columns.length>=maxColumns} onClick={()=>setColumnPanel({kind:'add'})}><Icon name="plus" size={18}/> Колонка</button>;
+  const viewControls=tab==='board'&&<div className="board-view-tools">{mobile&&addColumnButton}<span className="view-caption">Вид карточек</span><div className="density-switch" role="group" aria-label="Вид карточек"><button aria-pressed={density==='full'} onClick={()=>setDensity('full')} title="Подробные карточки: все основные поля"><Icon name="full" size={20}/>Подробно</button><button aria-pressed={density==='compact'} onClick={()=>setDensity('compact')} title="Компактные карточки: название, ответственный и важные сигналы"><Icon name="compact" size={20}/>Компактно</button></div></div>;
   const groups=[['focus','Фокус дня','target'],['overdue','Просрочено','flag'],['today','Срок сегодня','calendar'],['upcoming','Ближайшие 7 дней','calendar'],['reminders','Пора напомнить','clock'],['blocked','Нужна помощь','link'],['unscheduled','Ожидания без даты','chat']] as const;
   return <main className={`frame ${tab==='sketch'?'sketch-mode':''}`}>
-    <BoardMaterial/>
+    <BoardMaterial theme={board.settings.theme}/>
     <div className="enamel">{board.settings.motion&&<BoardLighting/>}
       <div className="board-content">
         <div className="board-controls"><header className="toolbar"><a className="brand" href="#" onClick={e=>{e.preventDefault();setTab('board');}}><Icon name="board" size={35}/><h1>{tab==='today'?'Мой день':'Моя доска'}</h1></a>
@@ -79,26 +84,26 @@ export function App() {
         </header>
         {!mobile&&tab!=='sketch'&&<div className="filters">{filterControls}<div className="legend"><span><i className="mine"/>Мои</span><span><i className="colleague"/>Коллеги</span><span><i className="team"/>Команды</span></div>{viewControls}</div>}
         {mobile&&viewControls}
-        {tab!=='sketch'&&<div className="daily-strip"><button onClick={()=>setTab('today')}><Icon name="target"/> Фокус: <b>{overview.focus.filter(matches).length}</b></button><span className="divider"/><button onClick={()=>setTab('today')}><Icon name="chat"/> Жду ответа: <b>{board.tasks.filter(t=>!t.archived&&matches(t)&&stageOf(board,t)!=='done'&&(t.waitingFor||t.waitingWhat)).length}</b></button><span className="divider"/><button className={overview.overdue.filter(matches).length?'red':''} onClick={()=>setTab('today')}><Icon name="clock"/> Просрочено: <b>{overview.overdue.filter(matches).length}</b></button><span className="strip-spacer"/><button className={tab==='archive'?'active':''} onClick={()=>setTab(tab==='archive'?'board':'archive')}><Icon name="archive" size={21}/> Архив</button><span className="saved-state" aria-live="polite">{busy?'Сохраняю…':notice||'На этом компьютере'}</span></div>}
+        {tab!=='sketch'&&<div className="daily-strip"><button onClick={()=>setTab('today')}><Icon name="target"/> Фокус: <b>{overview.focus.filter(matches).length}</b></button><span className="divider"/><button onClick={()=>setTab('today')}><Icon name="chat"/> Жду ответа: <b>{board.tasks.filter(t=>!t.archived&&matches(t)&&stageOf(board,t)!=='done'&&(t.waitingFor||t.waitingWhat)).length}</b></button><span className="divider"/><button className={overview.overdue.filter(matches).length?'red':''} onClick={()=>setTab('today')}><Icon name="clock"/> Просрочено: <b>{overview.overdue.filter(matches).length}</b></button><span className="strip-spacer"/>{!mobile&&tab==='board'&&addColumnButton}{!mobile&&tab==='board'&&<button onClick={()=>setColumnPanel({kind:'list'})}><Icon name="board" size={21}/> Колонки</button>}<button className={tab==='archive'?'active':''} onClick={()=>setTab(tab==='archive'?'board':'archive')}><Icon name="archive" size={21}/> Архив</button><span className="saved-state" aria-live="polite">{busy?'Сохраняю…':notice||'На этом компьютере'}</span></div>}
         </div>
         {sketchOpened&&<SketchBoard initial={board.sketch} active={tab==='sketch'} onSaved={sketchSaved}/>}
         {tab==='board'&&<>
           {!board.tasks.length&&<div className="empty-intro"><span className="little-arrow">↙</span><div><h2>Начнём с одной задачи</h2><p>Всё, что важно сегодня, — перед глазами.</p></div><button className="text-button" disabled={busy} onClick={()=>act({type:'demo'})}>Посмотреть на примерах</button></div>}
           {activeFilter&&!visible.length&&board.tasks.length>0&&<p className="no-results">Ничего не нашлось. Попробуйте изменить поиск или фильтры.</p>}
-          <>{mobile?<MobileBoard revealTaskId={revealTaskId} onRevealed={clearReveal} filterKey={activeFilter?JSON.stringify(filters):''} density={density} board={board} tasks={visible} onOpen={setEditor} onAdd={add} onRename={id=>{setRename(id);setColumnTitle(board.columns.find(c=>c.id===id)!.title);}} act={act} busy={busy}/>:<BoardView density={density} board={board} tasks={visible} onOpen={setEditor} onAdd={add} onRename={id=>{setRename(id);setColumnTitle(board.columns.find(c=>c.id===id)!.title);}} act={act} busy={busy}/>}</>
+          <>{mobile?<MobileBoard revealTaskId={revealTaskId} onRevealed={clearReveal} filterKey={activeFilter?JSON.stringify(filters):''} density={density} board={board} tasks={visible} onOpen={setEditor} onAdd={add} onEditColumn={editColumn} act={act} busy={busy}/>:<BoardView density={density} board={board} tasks={visible} onOpen={setEditor} onAdd={add} onEditColumn={editColumn} act={act} busy={busy}/>}</>
         </>}
         {tab==='today'&&<div className="today-view"><div className="today-title"><h2>Сегодня, {now.toLocaleDateString('ru-RU',{day:'numeric',month:'long'})}</h2><p>Что сделать, кого спросить, что сдвинуть с места.</p></div><div className="today-groups">{groups.map(([key,label,icon])=><section className={`today-group ${key==='overdue'?'overdue':''}`} key={key}><h3><Icon name={icon}/>{label}<span className="count">{overview[key].filter(matches).length}</span></h3>{overview[key].filter(matches).map(t=><button className="today-item" key={t.id} onClick={()=>setEditor(t)}><i className={`tiny-note ${t.category}`}/><span><strong>{t.title}</strong><small>{key==='reminders'?t.waitingFor||t.waitingWhat:t.nextStep||board.columns.find(c=>c.id===t.columnId)?.title}</small></span>{t.dueDate&&<span className="item-date">{formatDate(t.dueDate)}</span>}<Icon name="arrow" size={18}/></button>)}{!overview[key].filter(matches).length&&<p className="hint">{key==='focus'?'Отметьте «В фокусе дня» в карточке задачи.':'Здесь пока спокойно.'}</p>}</section>)}</div></div>}
         {tab==='archive'&&<div className="archive-view"><h2>Завершено и отложено на полку</h2><p>Откройте карточку, чтобы вернуть задачу на доску.</p>{board.tasks.filter(t=>t.archived&&matches(t)).map(t=><button className="today-item" key={t.id} onClick={()=>setEditor(t)}><Icon name="check"/><span>{t.title}</span><small>{t.completedAt&&new Date(t.completedAt).toLocaleDateString('ru-RU')}</small><Icon name="arrow"/></button>)}{!board.tasks.some(t=>t.archived&&matches(t))&&<p className="hint">В архиве пока нет задач.</p>}</div>}
       </div>
     </div>
-    <MarkerTray sketch={tab==='sketch'}/>
+    {!mobile&&<MarkerTray sketch={tab==='sketch'}/>}
     {mobile&&(busy||notice)&&<div className="mobile-save-status" role="status">{busy?'Сохраняю…':notice}</div>}
     {mobile&&<nav className="mobile-nav" aria-label="Разделы приложения"><button aria-current={tab==='board'?'page':undefined} onClick={()=>setTab('board')}><Icon name="board"/><span>Доска</span></button><button aria-current={tab==='today'?'page':undefined} onClick={()=>setTab('today')}><Icon name="calendar"/><span>Сегодня</span></button><button aria-current={tab==='sketch'?'page':undefined} onClick={openSketch}><Icon name="sketch"/><span>Эскиз</span></button><button className="mobile-add" aria-label="Добавить задачу" onClick={()=>add()}><Icon name="plus" size={28}/></button><button aria-current={tab==='archive'?'page':undefined} onClick={()=>setMore(true)}><Icon name="more"/><span>Ещё</span></button></nav>}
     {mobile&&filterPanel&&<Modal title="Поиск и фильтры" className="mobile-sheet" onClose={()=>setFilterPanel(false)}><div className="mobile-filter-fields">{filterControls}</div><p className="hint">Найдено: {tab==='archive'?board.tasks.filter(t=>t.archived&&matches(t)).length:visible.length}</p><button className="marker-button" onClick={()=>setFilterPanel(false)}>Показать задачи</button></Modal>}
-    {mobile&&more&&<Modal title="Ещё" className="mobile-sheet" onClose={()=>setMore(false)}><div className="more-actions"><button onClick={()=>{setMore(false);setTab('archive');}}><Icon name="archive"/> Архив</button><button onClick={()=>{setMore(false);setSettings(true);}}><Icon name="settings"/> Настройки и справочники</button><button disabled={busy} onClick={()=>act({type:'settings',settings:{...board.settings,theme:board.settings.theme==='day'?'night':'day'}})}><Icon name={board.settings.theme==='day'?'moon':'sun'}/> {board.settings.theme==='day'?'Вечернее освещение':'Дневное освещение'}</button></div></Modal>}
+    {mobile&&more&&<Modal title="Ещё" className="mobile-sheet" onClose={()=>setMore(false)}><div className="more-actions"><button onClick={()=>{setMore(false);setColumnPanel({kind:'list'});}}><Icon name="board"/> Колонки доски</button><button onClick={()=>{setMore(false);setTab('archive');}}><Icon name="archive"/> Архив</button><button onClick={()=>{setMore(false);setSettings(true);}}><Icon name="settings"/> Настройки и справочники</button><button disabled={busy} onClick={()=>act({type:'settings',settings:{...board.settings,theme:board.settings.theme==='day'?'night':'day'}})}><Icon name={board.settings.theme==='day'?'moon':'sun'}/> {board.settings.theme==='day'?'Вечернее освещение':'Дневное освещение'}</button></div></Modal>}
     {quick&&<Modal title="Новый стикер" onClose={()=>setQuick(null)}><form onSubmit={async e=>{e.preventDefault();const task=newTask(board,title,quick);if(await act({type:'saveTask',task})){setQuick(null);if(mobile){setFilters(blankFilters);setTab('board');setRevealTaskId(task.id);}}}}><label className="field"><span>Что нужно сделать?</span><input data-initial-focus autoFocus required maxLength={250} placeholder="Например, согласовать контракт API" value={title} onChange={e=>setTitle(e.target.value)}/></label><p className="hint">Ответственный — вы. Детали можно добавить, открыв стикер.</p><button className="marker-button" disabled={busy||!title.trim()}>Добавить задачу</button></form></Modal>}
-    {rename&&<Modal title="Название колонки" onClose={()=>setRename(null)}><form onSubmit={async e=>{e.preventDefault();if(await act({type:'renameColumn',id:rename,title:columnTitle}))setRename(null);}}><input data-initial-focus autoFocus aria-label="Название колонки" required maxLength={60} value={columnTitle} onChange={e=>setColumnTitle(e.target.value)}/><p className="hint">Меняется название; этап рабочего процесса остаётся прежним.</p><button className="marker-button" disabled={busy}>Сохранить</button></form></Modal>}
     {editor&&<TaskEditor key={editor.id} board={board} task={editor} act={act} busy={busy} onClose={()=>setEditor(null)}/>}
+    {columnPanel&&<ColumnManager key={columnPanel.kind+('id' in columnPanel?columnPanel.id:'')} board={board} act={act} busy={busy} panel={columnPanel} open={setColumnPanel} onClose={()=>setColumnPanel(null)}/>}
     {settings&&<Settings board={board} act={act} busy={busy} onClose={()=>setSettings(false)}/>}
     {error&&createPortal(<div className="error-toast" role="alert"><span>{error}</span><button aria-label="Закрыть сообщение" onClick={()=>setError('')}>×</button></div>,document.querySelector('dialog[open]')||document.body)}
   </main>;

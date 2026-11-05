@@ -20,13 +20,15 @@ export function createStore(filename: string) {
     if(!board)return null;
     const columns=await tx.select().from(s.columns).orderBy(asc(s.columns.position));
     const directories=await tx.select().from(s.directories).orderBy(sql`rowid`);
+    const directoryLinks=await tx.select().from(s.directoryLinks).orderBy(sql`rowid`);
     const tasks=await tx.select().from(s.tasks).orderBy(asc(s.tasks.position));
     const dependencies=await tx.select().from(s.dependencies).orderBy(sql`rowid`);
     const checklist=await tx.select().from(s.checklist).orderBy(asc(s.checklist.position));
     const [sketch]=await tx.select().from(s.sketches).where(eq(s.sketches.boardId,boardId));
     return validateBoard({...board,
       sketch:sketch?{revision:sketch.revision,items:sketch.items}:emptySketch(),
-      columns:columns.map(({id,stage,title})=>({id,stage,title})),
+      columns:columns.map(({id,stage,title,width})=>({id,stage,title,width})),
+      directoryLinks,
       directories:directories.map(({id,kind,name})=>({id,kind,name})),
       tasks:tasks.map(t=>({...t.data,id:t.id,columnId:t.columnId,
         dependencies:dependencies.filter(d=>d.taskId===t.id).map(d=>d.dependsOn),
@@ -42,6 +44,7 @@ export function createStore(filename: string) {
     await tx.insert(s.sketches).values({boardId:board.id,...board.sketch}).onConflictDoUpdate({target:s.sketches.boardId,set:board.sketch});
     await tx.insert(s.columns).values(board.columns.map((c,position)=>({...c,boardId:board.id,position})));
     for(let i=0;i<board.directories.length;i+=500)await tx.insert(s.directories).values(board.directories.slice(i,i+500).map(d=>({...d,boardId:board.id})));
+    for(let i=0;i<board.directoryLinks.length;i+=1000)await tx.insert(s.directoryLinks).values(board.directoryLinks.slice(i,i+1000));
     const rows=board.tasks.map(({id,columnId,dependencies,checklist,...data},position)=>({id,columnId,boardId:board.id,position,data}));
     for(let i=0;i<rows.length;i+=500)await tx.insert(s.tasks).values(rows.slice(i,i+500));
     const deps=board.tasks.flatMap(t=>t.dependencies.map(dependsOn=>({taskId:t.id,dependsOn})));

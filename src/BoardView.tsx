@@ -3,8 +3,9 @@ import { createPortal } from 'react-dom';
 import { DndContext, PointerSensor, KeyboardSensor, useSensor, useSensors, useDroppable, useDraggable, DragOverlay, MeasuringStrategy, pointerWithin, type DragEndEvent, type DragMoveEvent, type KeyboardCoordinateGetter, type CollisionDetection, type DropAnimationFunction } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { placementOf, previewMove, type Placement } from './boardMovement';
-import { stageOf, localDate, unfinishedDependencies, ownerId, type Board, type Task, type Action } from '../shared/model';
+import { overWorkLimit, stageOf, localDate, unfinishedDependencies, type Board, type Task, type Action } from '../shared/model';
 import { Icon, formatDate } from './ui';
+import { ColumnDivider, type WidthChange } from './ColumnDivider';
 import { PaperSurface } from './BoardMaterials';
 export const categories={mine:'Моя',colleague:'Коллега',team:'Смежная команда'};
 export type Act=(action:Action)=>Promise<boolean>;
@@ -65,24 +66,39 @@ function Card({board,task,onOpen,onMove,busy,nodes,landing}:{board:Board;task:Ta
     </div>
   </article>;
 }
-function Column({board,column,tasks,onOpen,onAdd,onRename,onMove,busy,nodes,landing}:{board:Board;column:Board['columns'][number];tasks:Task[];onOpen:(t:Task)=>void;onAdd:(columnId:string)=>void;onRename:(id:string)=>void;onMove:(id:string,direction:number)=>void;busy:boolean;nodes:Nodes;landing:string|null}) {
+function Column({divider,overLimit,board,column,tasks,onOpen,onAdd,onEditColumn,onMove,busy,nodes,landing}:{divider:React.ReactNode;overLimit:boolean;board:Board;column:Board['columns'][number];tasks:Task[];onOpen:(t:Task)=>void;onAdd:(columnId:string)=>void;onEditColumn:(id:string)=>void;onMove:(id:string,direction:number)=>void;busy:boolean;nodes:Nodes;landing:string|null}) {
   const {setNodeRef,isOver}=useDroppable({id:column.id});
   const count=tasks.length;
-  const overLimit=column.stage==='doing'&&board.tasks.filter(t=>t.columnId===column.id&&!t.archived&&t.assigneeId===ownerId).length>board.settings.wipLimit;
   return <section ref={setNodeRef} data-column-id={column.id} className={`column ${isOver?'drop-over':''}`} aria-label={column.title}>
-    <header className="column-heading"><button className="column-name" onClick={()=>onRename(column.id)} title="Переименовать колонку">{column.title}</button><span className={`count ${overLimit?'red':''}`}>{count}</span></header>
+    {divider}
+    <header className="column-heading"><button className="column-name" onClick={()=>onEditColumn(column.id)} aria-label={`Настройки колонки «${column.title}»`} aria-haspopup="dialog" title="Настройки колонки">{column.title}<Icon name="more" size={18}/></button><span className={`count ${overLimit?'red':''}`}>{count}</span></header>
     {overLimit&&<div className="wip-warning">Много задач сразу · лимит {board.settings.wipLimit}</div>}
     <div className="note-stack">{tasks.map(task=><Card key={task.id} board={board} task={task} onOpen={onOpen} onMove={onMove} busy={busy} nodes={nodes} landing={landing===task.id}/>)}</div>
     <button className="add-note" onClick={()=>onAdd(column.id)}>+ Добавить</button>
   </section>;
 }
-export function BoardView({board,tasks,onOpen,onAdd,onRename,act,busy,density}:{board:Board;density:'full'|'compact';tasks:Task[];onOpen:(t:Task)=>void;onAdd:(columnId:string)=>void;onRename:(id:string)=>void;act:Act;busy:boolean}) {
+export function BoardView({board,tasks,onOpen,onAdd,onEditColumn,act,busy,density}:{board:Board;density:'full'|'compact';tasks:Task[];onOpen:(t:Task)=>void;onAdd:(columnId:string)=>void;onEditColumn:(id:string)=>void;act:Act;busy:boolean}) {
   const [dragging,setDragging]=useState<Task|null>(null),[preview,setPreview]=useState<Task[]|null>(null),[landing,setLanding]=useState<string|null>(null);
   const nodes=useRef(new Map<string,HTMLElement>()),columnsRef=useRef<HTMLDivElement>(null);
   const previewRef=useRef<Task[]|null>(null),dragRef=useRef<Task|null>(null),keyboard=useRef(false),keyboardColumn=useRef<string|null>(null);
   const pointer=useRef<{x:number;y:number}|null>(null),original=useRef<Placement|null>(null),pending=useRef(false);
   const beforeLayout=useRef(new Map<string,DOMRect>()),animations=useRef(new Map<string,Animation>());
   const shown=preview||tasks;
+  const overLimit = overWorkLimit(board);
+  const tracks = (changes: WidthChange[] = []) => board.columns.map(c => {
+    const width = changes.find(change => change.id === c.id)?.width ?? c.width;
+    return `minmax(${Math.max(140, Math.round(width * 1.78))}px, ${width}fr)`;
+  }).join(' ');
+  const previewWidths = (changes: WidthChange[]) => {
+    const style = columnsRef.current?.style;
+    if (changes.length) style?.setProperty('--preview-tracks', tracks(changes));
+    else style?.removeProperty('--preview-tracks');
+  };
+  async function saveWidths(changes: WidthChange[]) {
+    previewWidths(changes);
+    try { await act({type:'resizeColumns', changes}); }
+    finally { previewWidths([]); }
+  }
   const capture=()=>{beforeLayout.current=new Map([...nodes.current].map(([id,node])=>[id,node.getBoundingClientRect()]));};
   const updatePreview=(next:Task[]|null)=>{capture();previewRef.current=next;setPreview(next);};
   useLayoutEffect(()=>{
@@ -204,7 +220,9 @@ export function BoardView({board,tasks,onOpen,onAdd,onRename,act,busy,density}:{
     dragRef.current=task;original.current=placementOf(tasks,task.id);keyboard.current=event.activatorEvent.type==='keydown';keyboardColumn.current=task.columnId;
     previewRef.current=tasks;setPreview(tasks);setDragging(task);
   }} onDragMove={hover} onDragOver={hover} onDragEnd={end} onDragCancel={cancel} accessibility={{screenReaderInstructions:{draggable:'Нажмите пробел, затем стрелки для перемещения. Пробел — приклеить, Escape — отменить.'},announcements:{onDragStart:()=> 'Стикер поднят. Используйте стрелки.',onDragOver:()=> 'Выбрано место для стикера.',onDragEnd:()=> 'Стикер отпущен. Проверяю сохранение.',onDragCancel:()=> 'Перемещение отменено.'}}}>
-    <div ref={columnsRef} className={`columns density-${density} ${dragging?'is-dragging':''}`} aria-busy={!!landing}>{board.columns.map(column=><Column key={column.id} column={column} board={board} tasks={shown.filter(t=>t.columnId===column.id)} onOpen={onOpen} onAdd={onAdd} onRename={onRename} onMove={move} busy={busy||!!landing} nodes={nodes} landing={landing}/>)}</div>
+    <div ref={columnsRef} style={{'--column-tracks':tracks()} as CSSProperties} className={`columns density-${density} ${dragging?'is-dragging':''}`} aria-busy={!!landing}>{board.columns.map((column,index)=><Column key={column.id}
+      divider={index > 0 && <ColumnDivider left={board.columns[index-1]} right={column} index={index-1} disabled={busy||!!dragging||!!landing} preview={previewWidths} save={saveWidths}/>}
+      overLimit={column.stage==='doing' && overLimit} column={column} board={board} tasks={shown.filter(t=>t.columnId===column.id)} onOpen={onOpen} onAdd={onAdd} onEditColumn={onEditColumn} onMove={move} busy={busy||!!landing} nodes={nodes} landing={landing}/>)}</div>
     {createPortal(<DragOverlay dropAnimation={dropAnimation} zIndex={50}>{dragging&&<div className={`note lifted density-${density} ${paperClass(dragging)}`}><PaperSurface/><span className="drag-handle" aria-hidden="true"><MarkerGrip/></span><div className="note-open"><CardBody board={board} task={dragging}/></div></div>}</DragOverlay>,document.body)}
   </DndContext>;
 }

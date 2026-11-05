@@ -3,8 +3,12 @@ import type { Board, Task, Directory } from '../shared/model.js';
 import type { SketchItem } from '../shared/sketch.js';
 export const boards = sqliteTable('boards', { id: text('id').primaryKey(), revision: integer('revision').notNull(), settings: text('settings', {mode:'json'}).$type<Board['settings']>().notNull() });
 export const sketches = sqliteTable('sketches', { boardId:text('board_id').primaryKey().references(()=>boards.id), revision:integer('revision').notNull(), items:text('items',{mode:'json'}).$type<SketchItem[]>().notNull() });
-export const columns = sqliteTable('board_columns', { id: text('id').primaryKey(), boardId: text('board_id').notNull().references(()=>boards.id), position: integer('position').notNull(), stage: text('stage').notNull(), title: text('title').notNull() });
+export const columns = sqliteTable('board_columns', { id: text('id').primaryKey(), boardId: text('board_id').notNull().references(()=>boards.id), position: integer('position').notNull(), stage: text('stage').notNull(), width: integer('width').notNull(), title: text('title').notNull() });
 export const directories = sqliteTable('directories', { id: text('id').primaryKey(), boardId: text('board_id').notNull().references(()=>boards.id), kind: text('kind').$type<Directory['kind']>().notNull(), name: text('name').notNull() });
+export const directoryLinks = sqliteTable('directory_links', {
+  memberId:text('member_id').notNull().references(()=>directories.id,{onDelete:'cascade'}),
+  groupId:text('group_id').notNull().references(()=>directories.id,{onDelete:'cascade'}),
+}, t=>[primaryKey({columns:[t.memberId,t.groupId]})]);
 export const tasks = sqliteTable('tasks', { id: text('id').primaryKey(), boardId: text('board_id').notNull().references(()=>boards.id), columnId: text('column_id').notNull().references(()=>columns.id), position: integer('position').notNull(), data: text('data', {mode:'json'}).$type<Omit<Task,'id'|'columnId'|'dependencies'|'checklist'>>().notNull() });
 export const dependencies = sqliteTable('dependencies', { taskId: text('task_id').notNull().references(()=>tasks.id,{onDelete:'cascade'}), dependsOn: text('depends_on').notNull().references(()=>tasks.id,{onDelete:'cascade'}) }, t=>[primaryKey({columns:[t.taskId,t.dependsOn]})]);
 export const checklist = sqliteTable('checklist', { id: text('id').primaryKey(), taskId: text('task_id').notNull().references(()=>tasks.id,{onDelete:'cascade'}), position: integer('position').notNull(), text: text('text').notNull(), done: integer('done', {mode:'boolean'}).notNull() });

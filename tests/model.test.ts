@@ -44,3 +44,35 @@ test('deletion removes dependencies and directory deletion protects referenced e
   const next=applyAction(b,{type:'deleteTask',id});assert.equal(next.tasks.find(t=>t.id===dependent.id)!.dependencies.length,0);
   assert.throws(()=>applyAction(b,{type:'deleteDirectory',id:b.tasks[0].projectId!}),/используется/);
 });
+
+test('custom columns support shared stages, safe removal and legacy widths', () => {
+  let board = initialBoard();
+  const [inbox, todo, , , done] = board.columns;
+  const legacy = {...board, columns:board.columns.map(({width, ...c}) => c)};
+  assert.deepEqual(validateBoard(legacy), board);
+  board = applyAction(board, {type:'addColumn', stage:'todo', title:'Backlog'});
+  const backlog = board.columns.find(c => c.title === 'Backlog')!;
+  const waiting = newTask(board,'Жду ответа',todo.id);
+  const pending = newTask(board,'Нужен ответ',inbox.id);
+  waiting.dependencies = [pending.id];
+  board = applyAction(board, {type:'saveTask',task:pending});
+  board = applyAction(board, {type:'saveTask',task:waiting});
+  const remove = {type:'deleteColumn', id:todo.id} as const;
+  assert.throws(() => applyAction(board,remove), /Выберите другую/);
+  assert.throws(() => applyAction(board,{...remove,destination:done.id}), /незавершённые/);
+  board = applyAction(board, {...remove,destination:backlog.id});
+  assert.deepEqual(board.tasks[1].dependencies, [pending.id]);
+  assert.equal(board.tasks[1].columnId, backlog.id);
+  board = applyAction(board,{type:'deleteColumn',id:backlog.id,destination:done.id,confirmBlocked:true});
+  assert.ok(board.tasks[1].completedAt);
+  board = applyAction(board,{type:'saveTask',task:{...board.tasks[1],archived:true}});
+  assert.throws(() => applyAction(board,{type:'deleteColumn',id:done.id,destination:inbox.id}), /архивных/);
+  board = applyAction(board,{type:'addColumn',stage:'done',title:'Опубликовано'});
+  const published=board.columns.at(-1)!;
+  board = applyAction(board,{type:'deleteColumn',id:done.id,destination:published.id});
+  assert.equal(board.tasks[1].archived,true);
+  assert.equal(board.tasks[1].columnId,published.id);
+  const single = {...initialBoard(),columns:[inbox]};
+  assert.throws(() => applyAction(single,{type:'deleteColumn',id:inbox.id}), /хотя бы одну/);
+  assert.equal(validateBoard(demoBoard(single)).columns.length,1);
+});

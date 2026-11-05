@@ -192,3 +192,118 @@
   .mobile-landing { animation:mobile-stick 180ms ease-out; }
   @keyframes mobile-stick { from { transform:rotate(-1.3deg) scale(1.025); } to { transform:rotate(0deg) scale(1); } }
 }
+
+/* Painted on the enamel, with a wider transparent target for resizing. */
+.columns .column { container-type: inline-size; }
+.column-divider {
+  position: absolute; top: 2px; bottom: 2px; left: -8px; width: 16px; z-index: 3;
+  cursor: col-resize; touch-action: none; user-select: none; color: color-mix(in srgb, var(--ink) 72%, transparent);
+}
+.column-divider svg { display: block; width: 16px; height: 100%; margin: auto; pointer-events: none; }
+.column-divider:hover, .column-divider:focus-visible { color: var(--blue); }
+.column-divider:focus-visible { outline: 1px dashed currentColor; }
+.column-name { min-width: 0; overflow-wrap: anywhere; }
+@container (max-width: 165px) {
+  .column-name { font-size: 23px; }
+  .add-note { font-size: 22px; }
+  .note h3 { font-size: 22px; }
+  .column .note-open { padding-left: 9px; padding-right: 9px; }
+}
+.column-settings-row { display: grid; grid-template-columns: minmax(0,1fr) auto 36px; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid #62665933; }
+.column-settings-row > span { overflow-wrap: anywhere; }
+.column-settings-row small { display: block; opacity: .75; }
+.column-settings-row select { width: auto; }
+.column-remove { font-size: 26px; }
+.column-remove:hover:not(:disabled) { color: #a33327; }
+
+.add-column-button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; color: var(--blue); white-space: nowrap; }
+.column-name svg { display: inline-block; margin-left: 4px; vertical-align: middle; color: var(--muted); }
+.column-name:hover svg, .column-name:focus-visible svg { color: var(--blue); }
+.column-list-name { text-align: left; overflow-wrap: anywhere; }
+.column-settings-list { margin-top: 12px; }
+.column-danger { margin-top: 22px; padding-top: 12px; border-top: 1px solid var(--line); }
+.column-danger small { display: block; }
+.column-delete-action { color: #98342d; display: inline-flex; align-items: center; gap: 5px; }
+.column-confirm { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 14px; margin-top: 18px; }
+@media (max-width:760px) {
+  .board-view-tools { flex-wrap: wrap; }
+  .board-view-tools .view-caption { display: none; }
+  .board-view-tools .density-switch { width: auto; }
+  .add-column-button, .stage-options { min-height: 44px; }
+  .mobile-stage-heading { display: flex; align-items: center; }
+  .mobile-stage-heading h2 { flex: 1; min-width: 0; }
+  .stage-options { min-width: 44px; color: var(--muted); }
+}
+
+/* Ink sits on the enamel beneath the controls; select menus keep their native hit areas. */
+.daily-strip {
+  border-bottom: 0;
+  background: url('/materials/marker-rule.svg') left bottom / 100% 8px no-repeat;
+}
+.filters select, .mobile-filter-fields select {
+  border-bottom-color: transparent;
+  background-image: url('/materials/marker-underline.svg');
+  background-size: 100% 6px;
+  background-position: left bottom;
+  background-repeat: no-repeat;
+  padding-bottom: 6px;
+}
+.filters select:nth-of-type(even), .mobile-filter-fields select:nth-of-type(even) {
+  background-position: right bottom;
+  background-size: 98% 5px;
+}
+@media (max-width: 760px) {
+  .board-view-tools {
+    background: url('/materials/marker-rule.svg') left bottom / 100% 6px no-repeat;
+  }
+}
+
+/* Preserve the platform's scrolling, thumb sizing, and pointer behaviour. */
+.note-stack, .mobile-board, .today-view, .archive-view, .columns {
+  scrollbar-color: #50607855 transparent;
+  scrollbar-width: thin;
+}
+@supports selector(::-webkit-scrollbar-thumb) {
+  :is(.note-stack, .mobile-board, .today-view, .archive-view, .columns) {
+    scrollbar-color: auto;
+    scrollbar-width: auto;
+  }
+  :is(.note-stack, .mobile-board, .today-view, .archive-view, .columns)::-webkit-scrollbar {
+    width: 14px;
+    height: 12px;
+    background: transparent;
+  }
+  :is(.note-stack, .mobile-board, .today-view, .archive-view)::-webkit-scrollbar-thumb:vertical {
+    min-height: 28px;
+    background: url('/materials/marker-scroll-thumb.svg') center / 5px 100% no-repeat;
+  }
+  :is(.note-stack, .mobile-board, .today-view, .archive-view)::-webkit-scrollbar-thumb:vertical:hover {
+    background-size: 7px 100%;
+  }
+  .columns::-webkit-scrollbar-thumb:horizontal {
+    min-width: 28px;
+    border: solid transparent;
+    border-width: 5px 2px;
+    border-radius: 55% 35% 50% 40% / 6px;
+    background: #50607855 content-box;
+  }
+  .columns::-webkit-scrollbar-thumb:horizontal:hover {
+    background-color: #50607880;
+  }
+}
+@media (forced-colors: active) {
+  .daily-strip, .filters select, .mobile-filter-fields select, .board-view-tools {
+    background-image: none;
+    border-bottom: 1px solid CanvasText;
+  }
+  :is(.note-stack, .mobile-board, .today-view, .archive-view, .columns) {
+    scrollbar-color: auto;
+    scrollbar-width: thin;
+  }
+}
+
+.directory-links-summary { display: block; color: var(--muted); font-size: .8em; }
+.directory-members { margin: 12px 0; }
+.directory-members legend { font-weight: 600; }
+.directory-members > div { max-height: 155px; overflow-y: auto; }
+.directory-members .checkline { margin: 3px 0; overflow-wrap: anywhere; }

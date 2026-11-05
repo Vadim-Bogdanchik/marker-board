@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { taskSchema, stageOf, unfinishedDependencies, type Board, type Task } from '../shared/model';
+import { taskSchema, linkedDirectoryIds, stageOf, unfinishedDependencies, type Board, type Task } from '../shared/model';
 import { categories, type Act } from './BoardView';
 import { Icon, Modal } from './ui';
 import { useMobileLayout, useEditorViewport } from './viewPreferences';
@@ -24,7 +24,17 @@ export function TaskEditor({board,task,onClose,act,busy}:{board:Board;task:Task;
     setError('');setSaving(true);const ok=await act({type:'saveTask',task:parsed.data});setSaving(false);if(ok)onClose();
   };
   function directory(kind:'person'|'team'|'project',key:'assigneeId'|'teamId'|'projectId',label:string) {
-    return <label className="field inline"><span>{label}</span><select name={key} value={draft[key]||''} onChange={e=>set(key,e.target.value||null)}><option value="">Не выбран</option>{board.directories.filter(d=>d.kind===kind).map(d=><option key={d.id} value={d.id}>{d.name}</option>)}</select></label>;
+    const context = kind === 'team' ? [draft.assigneeId, draft.projectId] : [draft.teamId];
+    const related = new Set(context.flatMap(id => id ? [...linkedDirectoryIds(board.directoryLinks,id)] : []));
+    const entries = board.directories.filter(d => d.kind === kind);
+    const option = (d: typeof entries[number]) => <option key={d.id} value={d.id}>{d.name}</option>;
+    const preferred = entries.filter(d => related.has(d.id));
+    const others = entries.filter(d => !related.has(d.id));
+    return <label className="field inline"><span>{label}</span><select name={key} value={draft[key]||''} onChange={e=>set(key,e.target.value||null)}>
+      <option value="">Не выбран</option>
+      {preferred.length ? <><optgroup label="Связанные записи">{preferred.map(option)}</optgroup>
+        {!!others.length && <optgroup label="Остальные">{others.map(option)}</optgroup>}</> : entries.map(option)}
+    </select></label>;
   }
   return <Modal title={existing?'Карточка задачи':'Новая задача'} onClose={close} wide className="task-editor">
     <form ref={form} className="task-form" onInvalid={e=>revealField(e.target as HTMLElement)} onSubmit={e=>{e.preventDefault();void save();}}>

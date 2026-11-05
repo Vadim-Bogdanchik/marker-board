@@ -31,9 +31,9 @@ export function WindowReflection() {
         '--tip-delay': `${-i * .53}s`, '--tip-duration': `${5.1 + i % 4 * .7}s`,
         '--stem-origin': branch.variant === 'a' ? '96% 96%' : '4% 96%',
       } as CSSProperties}>
-        <div className="branch-wind"><img className="branch-tip" src={`/materials/foliage-branch-${branch.variant}.png`} alt="" draggable={false}/></div>
+        <div className="branch-wind"><img className="branch-tip" src={`/materials/foliage-branch-${branch.variant}.webp`} alt="" draggable={false}/></div>
       </div>)}
     </div>
-    <img className="window-foreground" src="/materials/window-foreground.png" alt="" draggable={false}/>
+    <img className="window-foreground" src="/materials/window-foreground.webp" alt="" draggable={false}/>
   </div>;
 }

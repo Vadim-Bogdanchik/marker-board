@@ -1,4 +1,4 @@
-import { initialBoard, localDate, newTask, ownerId, validateBoard, type Board, type Directory, type Task } from './model.js';
+import { initialBoard, localDate, newTask, ownerId, stages, validateBoard, type Board, type Directory, type Task } from './model.js';
 
 // Stable IDs make adding this scenario repeatable without duplicating existing data.
 const id=(n:number)=>`dddddddd-0000-4000-8000-${String(n).padStart(12,'0')}`;
@@ -11,21 +11,27 @@ export function withTeamMocks(base:Board=initialBoard(),now=new Date()):Board {
   const b=structuredClone(base);
   const date=(offset:number)=>{const d=new Date(now);d.setDate(d.getDate()+offset);return localDate(d);};
   const stamp=(days:number)=>{const d=new Date(now);d.setDate(d.getDate()+days);return d.toISOString();};
-  const addDirectory=(item:Directory)=>{if(!b.directories.some(d=>d.id===item.id))b.directories.push(item);};
+  const addDirectory = (item:Directory, groupId?:string) => {
+    if (b.directories.some(d => d.id === item.id)) return;
+    b.directories.push(item);
+    if (groupId) b.directoryLinks.push({memberId:item.id,groupId});
+  };
   mockTeams.forEach((team,t)=>{
     const teamId=id(100+t),projectId=id(200+t);
-    addDirectory({id:teamId,kind:'team',name:team.name});addDirectory({id:projectId,kind:'project',name:team.project});
-    team.people.forEach((name,p)=>addDirectory({id:id(300+t*10+p),kind:'person',name}));
+    addDirectory({id:teamId,kind:'team',name:team.name},projectId);addDirectory({id:projectId,kind:'project',name:team.project});
+    team.people.forEach((name,p)=>addDirectory({id:id(300+t*10+p),kind:'person',name},teamId));
     team.titles.forEach((title,i)=>{
       const taskId=id(1000+t*10+i);if(b.tasks.some(task=>task.id===taskId))return;
-      const stage=[2,1,1,3,0,4][i];
-      const task:Task={...newTask(b,title,b.columns.find(c=>c.stage===['inbox','todo','doing','review','done'][stage])!.id),id:taskId,
+      const preferred = stages[[2,1,1,3,0,4][i]];
+      const column = b.columns.find(c => c.stage === preferred) ?? b.columns[0];
+      const stage = stages.indexOf(column.stage);
+      const task:Task={...newTask(b,title,column.id),id:taskId,
         category:i===3?'mine':i===4?'team':'colleague',assigneeId:i===3?ownerId:i===4?null:id(300+t*10+i%3),teamId,projectId,
         description:`Учебный пример. Команда «${team.name}». Аналитик: ${team.people[0]}; разработчик: ${team.people[1]}; тестировщик: ${team.people[2]}.\nКонтекст: ${title}. Согласовать критерии приёмки и проверить негативные сценарии.`,
         priority:i===0?'high':i===4?'low':'normal',dueDate:i===4?null:date([-1,2,7,0,0,-2][i]),
         nextStep:i===0?'Уточнить граничные случаи у разработчика':'Проверить критерии приёмки',focused:i===0||i===3,
         createdAt:stamp(-6),updatedAt:stamp(-1),startedAt:stage>=2?stamp(-4):null,completedAt:stage===4?stamp(-2):null,
-        archived:t===2&&i===5,
+        archived:column.stage==='done'&&t===2&&i===5,
       };
       if(i===1)task.dependencies=[id(1000+t*10)];
       if(i===2)task.dependencies=[id(1001+t*10)];

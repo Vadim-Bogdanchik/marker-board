@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { DndContext, DragOverlay, MouseSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors, pointerWithin, MeasuringStrategy, type CollisionDetection, type DragMoveEvent } from '@dnd-kit/core';
-import { ownerId, type Board, type Task } from '../shared/model';
+import { overWorkLimit, type Board, type Task } from '../shared/model';
 import { CardBody, MarkerOrderArrow, type Act } from './BoardView';
 import { PaperSurface } from './BoardMaterials';
 import { placementOf, previewMove, type Placement } from './boardMovement';
@@ -33,7 +33,7 @@ function MobileStage({id,highlight,children}:{id:string;highlight:boolean;childr
   return <section ref={setNodeRef} data-mobile-column={id} className={`mobile-stage ${highlight?'mobile-drop-stage':''}`}>{children}</section>;
 }
 
-export function MobileBoard({board,tasks,density,filterKey,revealTaskId,onRevealed,onOpen,onAdd,onRename,act,busy}:{board:Board;tasks:Task[];density:CardDensity;filterKey:string;revealTaskId:string|null;onRevealed:()=>void;onOpen:(task:Task)=>void;onAdd:(id:string)=>void;onRename:(id:string)=>void;act:Act;busy:boolean}) {
+export function MobileBoard({board,tasks,density,filterKey,revealTaskId,onRevealed,onOpen,onAdd,onEditColumn,act,busy}:{board:Board;tasks:Task[];density:CardDensity;filterKey:string;revealTaskId:string|null;onRevealed:()=>void;onOpen:(task:Task)=>void;onAdd:(id:string)=>void;onEditColumn:(id:string)=>void;act:Act;busy:boolean}) {
   const listRef=useRef<HTMLDivElement>(null),nodes=useRef(new Map<string,HTMLElement>());
   const [collapsed,setCollapsed]=useState<Record<string,boolean>>({});
   const [menu,setMenu]=useState<Task|null>(null),[destination,setDestination]=useState('');
@@ -75,6 +75,7 @@ export function MobileBoard({board,tasks,density,filterKey,revealTaskId,onReveal
     });});
     return()=>cancelAnimationFrame(frame);
   },[revealTaskId,board.tasks,onRevealed]);
+  const aboveLimit = overWorkLimit(board);
   function open(task:Task){if(!pending.current&&!dragRef.current&&Date.now()>suppressClickUntil.current)onOpen(task);}
   function openMenu(task:Task){if(!pending.current&&!dragRef.current&&Date.now()>suppressClickUntil.current){setMenu(task);setDestination(task.columnId);}}
   const task=menu&&board.tasks.find(t=>t.id===menu.id);
@@ -137,14 +138,14 @@ export function MobileBoard({board,tasks,density,filterKey,revealTaskId,onReveal
       <p className="mobile-drag-hint">Удерживайте стикер, чтобы перенести</p>
       {board.columns.map(column=>{
         const list=shown.filter(t=>t.columnId===column.id),closed=!!collapsed[column.id];
-        const overLimit=column.stage==='doing'&&board.tasks.filter(t=>!t.archived&&t.columnId===column.id&&t.assigneeId===ownerId).length>board.settings.wipLimit;
+        const overLimit=column.stage==='doing' && aboveLimit;
         return <MobileStage key={column.id} id={column.id} highlight={drop?.columnId===column.id}>
-          <h2><button className="stage-toggle" disabled={!!dragging||moving} aria-expanded={!closed} aria-controls={`stage-${column.id}`} onClick={()=>setCollapsed(current=>({...current,[column.id]:!closed}))}><Icon name="chevron" size={20}/><span>{column.title}</span><span className={`count ${overLimit?'red':''}`}>{list.length}</span></button></h2>
+          <div className="mobile-stage-heading"><h2><button className="stage-toggle" disabled={!!dragging||moving} aria-expanded={!closed} aria-controls={`stage-${column.id}`} onClick={()=>setCollapsed(current=>({...current,[column.id]:!closed}))}><Icon name="chevron" size={20}/><span>{column.title}</span><span className={`count ${overLimit?'red':''}`}>{list.length}</span></button></h2><button className="stage-options" disabled={busy||!!dragging||moving} aria-label={`Настройки колонки «${column.title}»`} aria-haspopup="dialog" onClick={()=>onEditColumn(column.id)}><Icon name="more" size={22}/></button></div>
           <div id={`stage-${column.id}`} hidden={closed} className="mobile-stage-content">
             {overLimit&&<p className="wip-warning">Много задач сразу · лимит {board.settings.wipLimit}</p>}
             {list.map((t,i)=><MobileCard key={t.id} board={board} task={t} index={i} count={list.length} onOpen={open} onMenu={openMenu} onOrder={order} busy={busy||moving} dragging={!!dragging} nodes={nodes} insertBefore={drop?.columnId===column.id&&drop.beforeId===t.id} landing={landing===t.id}/>)}
             {!list.length&&<p className="hint">{filterKey?'Нет задач по этим условиям':'Пока нет задач'}</p>}
-            <div className={`mobile-stage-footer ${drop?.columnId===column.id&&!drop.beforeId?'mobile-insert-before':''}`}><button disabled={!!dragging||moving} className="text-button" onClick={()=>onAdd(column.id)}>+ Добавить</button><button disabled={!!dragging||moving} className="stage-rename" aria-label={`Переименовать этап: ${column.title}`} onClick={()=>onRename(column.id)}>Переименовать</button></div>
+            <div className={`mobile-stage-footer ${drop?.columnId===column.id&&!drop.beforeId?'mobile-insert-before':''}`}><button disabled={!!dragging||moving} className="text-button" onClick={()=>onAdd(column.id)}>+ Добавить</button></div>
           </div>
         </MobileStage>;
       })}

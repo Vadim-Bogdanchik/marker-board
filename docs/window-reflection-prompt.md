@@ -1,6 +1,6 @@
 # Фотографическое отражение окна
 
-Создано встроенным imagegen по приложенному пользователем рендеру. Материал: `public/materials/window-reflection.png`.
+Создано встроенным imagegen по приложенному пользователем рендеру. Материал: `docs/material-references/window-reflection.png`.
 
 ## Запрос
 
